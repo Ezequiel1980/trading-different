@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🌡️ Mapa de Liquidaciones BTC — Trading Different</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#080c10;color:#c9d1d9;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+  :root{--green:#a8ff3e;--red:#ff4444;--orange:#ff8800;--yellow:#ffd000;--blue:#3399ff;--purple:#a78bfa;--muted:#6b7280;--border:#1e2535;--bg2:#0d1117;--bg3:#161b22}
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#0d1117;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px}
+  .logo{font-size:17px;font-weight:800;letter-spacing:-0.5px}
+  .logo span{color:var(--green)}
+  .header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .mode-btns{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .mbtn{padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--muted);font-family:inherit;transition:all .2s}
+  .mbtn.active{background:var(--bg3);color:var(--green)}
+  .pill{padding:5px 13px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;border:1px solid}
+  .pill-green{border-color:var(--green);background:rgba(168,255,62,.07);color:var(--green)}
+  .pill-orange{border-color:var(--orange);background:rgba(255,136,0,.07);color:var(--orange)}
+  .pill-purple{border-color:var(--purple);background:rgba(167,139,250,.07);color:var(--purple)}
+  .pill-muted{border-color:var(--border);background:var(--bg2);color:var(--muted)}
+  .status-bar{display:flex;align-items:center;gap:18px;padding:8px 20px;background:#0d1117;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap}
+  .stat{display:flex;align-items:center;gap:6px}
+  .stat-lbl{color:var(--muted)}
+  .stat-val{font-weight:700;font-variant-numeric:tabular-nums}
+  #price-val{color:#fff;font-size:15px}
+  .up{color:var(--green)} .down{color:var(--red)}
+  main{flex:1;display:flex;flex-direction:column;padding:16px 20px;gap:12px}
+  .canvas-wrap{position:relative;border-radius:12px;overflow:hidden;background:#0b0f18;border:1px solid var(--border);flex:1;min-height:420px}
+  #hm-canvas{width:100%;height:100%;display:block}
+  #hm-loading{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:#0b0f18}
+  .spin{font-size:32px;animation:spin 2s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  footer{display:flex;align-items:center;gap:16px;padding:10px 20px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);flex-wrap:wrap}
+  .legend{display:flex;align-items:center;gap:5px}
+  .leg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+  .refresh-info{margin-left:auto;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🌡️ Mapa de <span>Liquidaciones BTC</span></div>
+  <div class="header-right">
+    <div class="mode-btns">
+      <button class="mbtn active" id="mbtn-scalping" onclick="setMode('scalping')">Scalping</button>
+      <button class="mbtn" id="mbtn-swing" onclick="setMode('swing')">Swing</button>
+    </div>
+    <button class="pill pill-green" onclick="forceRefresh()">↺ Actualizar</button>
+    <a class="pill pill-orange" href="https://www.coinglass.com/pro/futures/LiquidationMap" target="_blank">🔥 CoinGlass →</a>
+    <a class="pill pill-purple" href="https://hyblock.io/liquidation-map" target="_blank">📊 Hyblock →</a>
+    <a class="pill pill-muted" href="dashboard.html">← Dashboard</a>
+  </div>
+</header>
+<div class="status-bar">
+  <div class="stat"><span class="stat-lbl">BTC Binance</span><span class="stat-val" id="price-val">--</span></div>
+  <div class="stat"><span class="stat-lbl">24h</span><span class="stat-val" id="chg-val">--</span></div>
+  <div class="stat"><span class="stat-lbl">Modo</span><span class="stat-val" id="mode-val" style="color:var(--green)">SCALPING</span></div>
+  <div class="stat"><span class="stat-lbl">Próximo pool</span><span class="stat-val" id="next-pool-val">--</span></div>
+  <div class="stat"><span class="stat-lbl">Actualizado</span><span class="stat-val" id="update-time">--</span></div>
+  <div class="stat"><span class="stat-val" id="sync-badge" style="color:var(--muted)">Sin conexión al dashboard</span></div>
+</div>
+<main>
+  <div class="canvas-wrap" id="canvas-wrap">
+    <canvas id="hm-canvas"></canvas>
+    <div id="hm-loading"><div class="spin">🌡️</div><div style="color:var(--muted);font-size:13px">Cargando datos de Binance...</div></div>
+  </div>
+</main>
+<footer>
+  <div class="legend"><div class="leg-dot" style="background:#ff2222"></div><span>Muy alta &gt;$100M</span></div>
+  <div class="legend"><div class="leg-dot" style="background:#ff8800"></div><span>Alta $50–100M</span></div>
+  <div class="legend"><div class="leg-dot" style="background:#ffd000"></div><span>Media $20–50M</span></div>
+  <div class="legend"><div class="leg-dot" style="background:#00cc88"></div><span>Baja &lt;$20M</span></div>
+  <div class="legend"><div class="leg-dot" style="background:#3399ff"></div><span>Precio actual</span></div>
+  <div class="refresh-info">Auto-refresh cada 24h · Fuente: Binance API + niveles Trading Different</div>
+</footer>
+<script>
+const POOLS = {
+  scalping: {
+    long_pools: [
+      { low:74500, high:76000, intensity:"red",    label:"Pool LARGO Principal",   size_m:120 },
+      { low:73000, high:73800, intensity:"yellow", label:"Pool LARGO Secundario",  size_m:35  },
+      { low:70000, high:71000, intensity:"green",  label:"Pool LARGO Bajo",        size_m:15  }
+    ],
+    short_pools: [
+      { low:77250, high:78350, intensity:"orange", label:"Pool CORTO Inmediato",   size_m:65  },
+      { low:80000, high:81360, intensity:"yellow", label:"Pool CORTO $80K-$81K",   size_m:40  },
+      { low:83000, high:85000, intensity:"green",  label:"Pool CORTO $83K-$85K",   size_m:20  }
+    ]
+  },
+  swing: {
+    long_pools: [
+      { low:74500, high:76000, intensity:"red",    label:"Pool LARGO Macro",       size_m:120 },
+      { low:70000, high:73000, intensity:"yellow", label:"Pool LARGO $70K-$73K",   size_m:40  },
+      { low:59050, high:62935, intensity:"green",  label:"Pool LARGO Profundo",    size_m:18  },
+      { low:55627, high:58000, intensity:"green",  label:"Floor Minería",          size_m:10  }
+    ],
+    short_pools: [
+      { low:77250,  high:78350,  intensity:"orange", label:"Pool CORTO Inmediato", size_m:65  },
+      { low:80000,  high:81360,  intensity:"yellow", label:"Pool CORTO $80K",      size_m:40  },
+      { low:88000,  high:95000,  intensity:"yellow", label:"Pool CORTO $88K-$95K", size_m:38  },
+      { low:100000, high:110000, intensity:"orange", label:"Pool CORTO $100K",     size_m:75  },
+      { low:110000, high:120000, intensity:"red",    label:"Pool CORTO $110K",     size_m:110 },
+      { low:120000, high:130000, intensity:"red",    label:"Pool CORTO MÁXIMO",    size_m:140 }
+    ]
+  }
+};
+
+let currentMode = 'scalping';
+let currentPrice = 0;
+let klines = [];
+let lastRefresh = 0;
+
+function fmtPrice(p) {
+  return '$' + Math.round(p).toLocaleString('en-US');
+}
+
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('mbtn-scalping').classList.toggle('active', m==='scalping');
+  document.getElementById('mbtn-swing').classList.toggle('active', m==='swing');
+  document.getElementById('mode-val').textContent = m.toUpperCase();
+  try { localStorage.setItem('td_mode', m); localStorage.setItem('td_sync_ts', Date.now()); } catch(e){}
+  drawHeatmap();
+  updateNextPool();
+}
+
+function forceRefresh() {
+  lastRefresh = 0;
+  loadData();
+}
+
+function updateNextPool() {
+  if (!currentPrice) return;
+  const mode = POOLS[currentMode];
+  const allPools = [
+    ...mode.long_pools.map(p=>({...p,side:'LONG'})),
+    ...mode.short_pools.map(p=>({...p,side:'SHORT'}))
+  ];
+  let nearest = null, minDist = Infinity;
+  allPools.forEach(pool => {
+    const mid = (pool.low + pool.high) / 2;
+    const dist = Math.abs(mid - currentPrice);
+    if (dist < minDist) { minDist = dist; nearest = pool; }
+  });
+  if (nearest) {
+    const mid = (nearest.low + nearest.high) / 2;
+    const pct = ((mid - currentPrice) / currentPrice * 100).toFixed(2);
+    const color = nearest.side === 'LONG' ? '#a8ff3e' : '#ff4444';
+    document.getElementById('next-pool-val').innerHTML =
+      `<span style="color:${color}">${nearest.side} ${fmtPrice(mid)} (${pct>0?'+':''}${pct}%)</span>`;
+  }
+}
+
+// ── localStorage sync from dashboard ──
+function readFromDashboard() {
+  try {
+    const p = parseFloat(localStorage.getItem('td_price'));
+    const m = localStorage.getItem('td_mode');
+    const poolsRaw = localStorage.getItem('td_pools');
+    if (p && p > 1000) {
+      currentPrice = p;
+      document.getElementById('price-val').textContent = fmtPrice(currentPrice);
+    }
+    if (m && (m === 'scalping' || m === 'swing')) {
+      currentMode = m;
+      document.getElementById('mbtn-scalping').classList.toggle('active', m==='scalping');
+      document.getElementById('mbtn-swing').classList.toggle('active', m==='swing');
+      document.getElementById('mode-val').textContent = m.toUpperCase();
+    }
+    if (poolsRaw) {
+      const parsed = JSON.parse(poolsRaw);
+      if (parsed.scalping && parsed.swing) {
+        Object.assign(POOLS, parsed);
+        document.getElementById('sync-badge').textContent = '🔗 Sincronizado con Dashboard';
+        document.getElementById('sync-badge').style.color = 'var(--green)';
+      }
+    }
+    updateNextPool();
+    return true;
+  } catch(e) { return false; }
+}
+
+// Listen for live updates from the dashboard tab
+window.addEventListener('storage', (e) => {
+  if (e.key === 'td_sync_ts') {
+    readFromDashboard();
+    drawHeatmap();
+  }
+});
+
+async function loadData() {
+  const now = Date.now();
+  // First try to get data from dashboard localStorage
+  const hasDashboardData = readFromDashboard();
+
+  if (klines.length > 0 && (now - lastRefresh) < 24*60*60*1000) {
+    document.getElementById('hm-loading').style.display = 'none';
+    drawHeatmap();
+    return;
+  }
+  document.getElementById('hm-loading').style.display = 'flex';
+  try {
+    const [klRes, tickRes] = await Promise.all([
+      fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=500'),
+      fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT')
+    ]);
+    klines = await klRes.json();
+    const tick = await tickRes.json();
+    // Only override price if dashboard hasn't provided one
+    if (!hasDashboardData || currentPrice < 1000) {
+      currentPrice = parseFloat(tick.lastPrice);
+    }
+    const chg = parseFloat(tick.priceChangePercent);
+    document.getElementById('price-val').textContent = fmtPrice(currentPrice);
+    document.getElementById('chg-val').textContent = (chg>=0?'+':'')+chg.toFixed(2)+'%';
+    document.getElementById('chg-val').className = 'stat-val ' + (chg>=0?'up':'down');
+    lastRefresh = now;
+    const d = new Date();
+    document.getElementById('update-time').textContent =
+      d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Argentina/Buenos_Aires'})+' BsAs';
+    updateNextPool();
+  } catch(e) {
+    console.error('Fetch error:', e);
+  }
+  document.getElementById('hm-loading').style.display = 'none';
+  drawHeatmap();
+}
+
+function drawHeatmap() {
+  const canvas = document.getElementById('hm-canvas');
+  const wrap   = document.getElementById('canvas-wrap');
+  if (!canvas || !wrap) return;
+  const W = wrap.clientWidth  || 1200;
+  const H = wrap.clientHeight || 500;
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Background gradient
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#0a0e16');
+  bg.addColorStop(1, '#080c12');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Price range: union of all pools + current price
+  const mode = POOLS[currentMode];
+  const allPools = [
+    ...mode.long_pools.map(p=>({...p,side:'LONG'})),
+    ...mode.short_pools.map(p=>({...p,side:'SHORT'}))
+  ];
+  let allPrices = allPools.flatMap(p=>[p.low, p.high]);
+  if (currentPrice) allPrices.push(currentPrice);
+  if (klines.length) {
+    allPrices.push(Math.min(...klines.map(k=>parseFloat(k[3]))) * 0.99);
+    allPrices.push(Math.max(...klines.map(k=>parseFloat(k[2]))) * 1.01);
+  }
+  const rawMin = Math.min(...allPrices);
+  const rawMax = Math.max(...allPrices);
+  const pad = (rawMax - rawMin) * 0.05;
+  const priceMin = rawMin - pad;
+  const priceMax = rawMax + pad;
+  const priceRange = priceMax - priceMin;
+  const toY = p => H - ((p - priceMin) / priceRange) * H;
+
+  // ── Price grid lines ──
+  const gridSteps = 10;
+  for (let i = 0; i <= gridSteps; i++) {
+    const p = priceMin + (priceRange * i / gridSteps);
+    const y = toY(p);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(120,140,170,0.55)';
+    ctx.font = '10px monospace';
+    ctx.fillText(fmtPrice(Math.round(p / 500) * 500), W - 88, y - 3);
+  }
+
+  // ── Pool bands ──
+  allPools.forEach(pool => {
+    const y1 = toY(pool.high), y2 = toY(pool.low);
+    const yTop = Math.min(y1, y2);
+    const bandH = Math.max(Math.abs(y2 - y1), 6);
+    const size = pool.size_m || 50;
+    let r, g, b;
+    if (pool.intensity === 'red')    { r=255; g=34;  b=34;  }
+    else if (pool.intensity==='orange'){ r=255; g=136; b=0;  }
+    else if (pool.intensity==='yellow'){ r=255; g=208; b=0;  }
+    else                              { r=0;   g=200; b=136; }
+    const alpha = pool.intensity==='red' ? 0.22 : pool.intensity==='orange' ? 0.18 : 0.13;
+
+    // Full-width band fill
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0,    `rgba(${r},${g},${b},${alpha*1.8})`);
+    grad.addColorStop(0.35, `rgba(${r},${g},${b},${alpha})`);
+    grad.addColorStop(1,    `rgba(${r},${g},${b},0.02)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, yTop, W, bandH);
+
+    // Left accent bar
+    ctx.fillStyle = `rgba(${r},${g},${b},0.85)`;
+    ctx.fillRect(0, yTop, 4, bandH);
+
+    // Pool label
+    const labelY = yTop + bandH / 2;
+    ctx.font = 'bold 12px "Segoe UI",sans-serif';
+    ctx.fillStyle = `rgba(${r},${g},${b},1)`;
+    const arrow = pool.side === 'LONG' ? '▲' : '▼';
+    const liqStr = size >= 1000 ? (size/1000).toFixed(1)+'B' : size+'M';
+    ctx.fillText(`${arrow} ${pool.label}`, 12, labelY + 4);
+    ctx.font = '11px monospace';
+    ctx.fillStyle = `rgba(${r},${g},${b},0.75)`;
+    ctx.fillText(`${fmtPrice(pool.low)} – ${fmtPrice(pool.high)}  ·  $${liqStr}`, 12, labelY + 18);
+
+    // Right side: distance from current price
+    if (currentPrice) {
+      const mid = (pool.low + pool.high) / 2;
+      const dist = ((mid - currentPrice) / currentPrice * 100).toFixed(2);
+      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = `rgba(${r},${g},${b},0.8)`;
+      ctx.textAlign = 'right';
+      ctx.fillText((dist > 0 ? '+' : '') + dist + '%', W - 96, labelY + 4);
+      ctx.textAlign = 'left';
+    }
+  });
+
+  // ── Kline candles (right 55% of chart) ──
+  if (klines.length > 0) {
+    const candleStart = W * 0.45;
+    const candleW_total = W * 0.5;
+    const shown = klines.slice(-200);
+    const cW = Math.max(2, Math.floor(candleW_total / shown.length));
+    shown.forEach((k, i) => {
+      const o = parseFloat(k[1]), c = parseFloat(k[4]);
+      const h = parseFloat(k[2]), l = parseFloat(k[3]);
+      const x = candleStart + i * cW;
+      const isGreen = c >= o;
+      const wickColor = isGreen ? 'rgba(0,200,136,0.5)' : 'rgba(255,70,70,0.5)';
+      const bodyColor = isGreen ? 'rgba(0,200,136,0.75)' : 'rgba(255,70,70,0.75)';
+      ctx.strokeStyle = wickColor; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x+cW/2, toY(h)); ctx.lineTo(x+cW/2, toY(l)); ctx.stroke();
+      ctx.fillStyle = bodyColor;
+      const bTop = toY(Math.max(o,c));
+      const bH   = Math.max(1, Math.abs(toY(o) - toY(c)));
+      ctx.fillRect(x, bTop, Math.max(1, cW-1), bH);
+    });
+  }
+
+  // ── Current price line ──
+  if (currentPrice) {
+    const cpY = toY(currentPrice);
+    ctx.strokeStyle = '#3399ff'; ctx.lineWidth = 2; ctx.setLineDash([8, 4]);
+    ctx.beginPath(); ctx.moveTo(0, cpY); ctx.lineTo(W - 92, cpY); ctx.stroke();
+    ctx.setLineDash([]);
+    // Price label box
+    ctx.fillStyle = '#3399ff';
+    ctx.fillRect(W - 92, cpY - 10, 88, 20);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(fmtPrice(currentPrice), W - 48, cpY + 4);
+    ctx.textAlign = 'left';
+  }
+
+  // ── Footer label ──
+  ctx.fillStyle = 'rgba(100,120,150,0.4)'; ctx.font = '10px sans-serif';
+  ctx.fillText('Trading Different · Modo ' + currentMode.toUpperCase() + ' · Binance 1H · últimas 200 velas', 12, H - 8);
+}
+
+window.addEventListener('resize', () => { if (klines.length) drawHeatmap(); });
+setInterval(() => { if (Date.now() - lastRefresh > 24*60*60*1000) loadData(); }, 60*60*1000);
+
+loadData();
+</script>
+</body>
+</html>

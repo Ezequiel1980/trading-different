@@ -1,0 +1,19 @@
+# Python / bot (no va a Vercel)
+__pycache__/
+*.pyc
+.env
+venv/
+*.log
+btc_bot.py
+server.py
+trades_log.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.zip
+
+.vercel
