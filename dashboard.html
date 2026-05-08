@@ -1175,6 +1175,8 @@ body:has(#bottom-panel.open) .app-layout {
   padding: 0 8px;
   gap: 2px;
   overflow: hidden;
+  position: relative !important;
+  z-index: 200 !important;   /* Tapa los labels flotantes de TradingView */
 }
 .main-tab {
   height: 28px;
@@ -1406,7 +1408,7 @@ body:has(#bottom-panel.open) .app-layout {
     <div class="main-panels">
 
       <!-- ── PANEL: GRÁFICO ── -->
-      <div id="main-panel-chart" class="main-panel">
+      <div id="main-panel-chart" class="main-panel" style="contain:layout;overflow:hidden">
         <div id="tradingview_chart" style="width:100%;height:100%"></div>
       </div>
 
