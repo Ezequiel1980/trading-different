@@ -3563,6 +3563,12 @@ function setMainTab(tab) {
   const indCtrl = document.getElementById('tv-indicator-controls');
   if (indCtrl) indCtrl.style.display = tab === 'chart' ? 'flex' : 'none';
 
+  // Close any open modals when leaving chart tab
+  if (tab !== 'chart') {
+    closeStudiesModal();
+    closeModal();
+  }
+
   if (tab === 'analysis') {
     updateAnalysisCards();
     if (!_analysisInterval) _analysisInterval = setInterval(updateAnalysisCards, 2000);
