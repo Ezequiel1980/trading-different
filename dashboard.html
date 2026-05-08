@@ -2955,9 +2955,9 @@ function updateSession() {
   const now  = getBsAsDate();
   const h    = now.getHours() + now.getMinutes()/60;
   let name, color, end, desc;
-  if(h >= 21 || h < 5)  { name='🌏 Asia';    color='var(--purple)'; end=5;   desc='21:00–05:00'; }
-  else if(h < 13)        { name='🏦 Londres'; color='var(--blue)';   end=13;  desc='05:00–13:00'; }
-  else                   { name='🗽 NY';      color='var(--orange)'; end=21;  desc='13:00–21:00'; }
+  if(h >= 21 || h < 5)  { name='🇯🇵 Asia';       color='var(--purple)'; end=5;   desc='21:00–05:00'; }
+  else if(h < 13)        { name='🇬🇧 Londres';   color='var(--blue)';   end=13;  desc='05:00–13:00'; }
+  else                   { name='🇺🇸 Nueva York'; color='var(--orange)'; end=21;  desc='13:00–21:00'; }
   const hoursLeft = ((end-h)+24)%24;
   const el = document.getElementById('session-name');
   const st = document.getElementById('session-time');
