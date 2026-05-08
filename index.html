@@ -2411,7 +2411,7 @@ function formatISODateEs(isoDate, time) {
 }
 function updateBsAsTimeClock() {
   const now = getBsAsDate();
-  document.getElementById('bsas-time').textContent = now.toLocaleTimeString('es-AR');
+  document.getElementById('bsas-time').textContent = now.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
   document.getElementById('cal-date-label').textContent =
     'Hoy: ' + now.toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' });
 }
@@ -2512,7 +2512,7 @@ function connectWS() {
       syncToStorage();
       const ce = document.getElementById('calc-entry');
       if (!ce.value) ce.placeholder = '$' + Math.round(currentPrice).toLocaleString();
-      document.getElementById('last-update-time').textContent = getBsAsDate().toLocaleTimeString('es-AR');
+      document.getElementById('last-update-time').textContent = getBsAsDate().toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
     }
     if (msg.stream === 'xautusdt@ticker') {
       prevGoldPrice = goldPrice;
@@ -2948,21 +2948,34 @@ function calcSentimentScore() {
 }
 
 // ════════════════════════════════════════════════════════
-// FILTRO DE SESIÓN (horario BsAs UTC-3)
-// Asia: 21-05, Londres: 05-13, NY: 13-21
-// ════════════════════════════════════════════════════════
+// FILTRO DE SESIÓN — horario BsAs UTC-3 (formato 24h)
+// ┌─────────────────────────────────────────────────────┐
+// │ 🇯🇵 Asia/Tokio   21:00 – 05:00 UTC-3               │
+// │ 🇬🇧 Londres/EU   05:00 – 13:00 UTC-3               │
+// │ 🇺🇸 Nueva York   13:00 – 17:00 UTC-3 (NYSE EDT)    │
+// │ 🌙 Sin sesión    17:00 – 21:00 UTC-3               │
+// └─────────────────────────────────────────────────────┘
 function updateSession() {
   const now  = getBsAsDate();
   const h    = now.getHours() + now.getMinutes()/60;
   let name, color, end, desc;
-  if(h >= 21 || h < 5)  { name='🇯🇵 Asia';       color='var(--purple)'; end=5;   desc='21:00–05:00'; }
-  else if(h < 13)        { name='🇬🇧 Londres';   color='var(--blue)';   end=13;  desc='05:00–13:00'; }
-  else                   { name='🇺🇸 Nueva York'; color='var(--orange)'; end=21;  desc='13:00–21:00'; }
-  const hoursLeft = ((end-h)+24)%24;
+
+  if      (h >= 21 || h < 5)  { name='🇯🇵 Asia/Tokio';   color='var(--purple)'; end=5;  desc='21:00–05:00'; }
+  else if (h < 13)             { name='🇬🇧 Londres';       color='var(--blue)';   end=13; desc='05:00–13:00'; }
+  else if (h < 17)             { name='🇺🇸 Nueva York';    color='var(--orange)'; end=17; desc='13:00–17:00'; }
+  else                         { name='🌙 Sin sesión';     color='var(--muted)';  end=21; desc='17:00–21:00'; }
+
+  const hoursLeft = ((end - h) + 24) % 24;
+  const hh = Math.floor(hoursLeft);
+  const mm = Math.round((hoursLeft % 1) * 60);
+  const countdown = (end === 21)
+    ? 'próx. sesión 21:00'
+    : `cierra en ${hh}h${String(mm).padStart(2,'0')}m`;
+
   const el = document.getElementById('session-name');
   const st = document.getElementById('session-time');
   if(el){ el.textContent=name; el.style.color=color; }
-  if(st) st.textContent=desc+' · cierra en '+Math.floor(hoursLeft)+'h'+(Math.round((hoursLeft%1)*60))+'m';
+  if(st) st.textContent=desc+' · '+countdown;
   const shdr=document.getElementById('stat-session-hdr'); if(shdr){ shdr.textContent=name; shdr.style.color=color; }
 }
 
@@ -5292,4 +5305,12 @@ async function runBacktestAllTF() {
       </div>
     </div>
 
-    <div style="dis
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeStudiesModal()">Cerrar</button>
+      <button class="btn btn-primary" onclick="saveStudiesConfig();rebuildTVChart();closeStudiesModal()">💾 Aplicar y recargar</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
