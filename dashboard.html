@@ -2801,46 +2801,73 @@ function notifyDesktop(msg) {
 // ════════════════════════════════════════════════════════
 function updatePoolMap() {
   if (!currentPrice) return;
-  const map=document.getElementById('pool-map'), pools=getCurrentPools();
-  const all=[...pools.long_pools,...pools.short_pools];
-  const prices=all.flatMap(p=>[p.low,p.high]);
-  const margin=currentMode==='scalping'?3000:15000;
-  const minP=Math.min(...prices,currentPrice)-margin, maxP=Math.max(...prices,currentPrice)+margin;
-  const range=maxP-minP, mapH=map.clientHeight||260;
-  const toY=p=>((maxP-p)/range)*mapH;
-  map.querySelectorAll('.pool-zone').forEach(el=>el.remove());
-  // Confluence detection: count how many TFs have an overlapping pool in this area
-  const allTFs = ['15m','1H','4H','1D'];
-  function countTFConfluence(pool, side) {
-    return allTFs.filter(tf => {
-      const tfPools = (POOLS[currentMode][tf] || {})[side+'_pools'] || [];
-      return tfPools.some(p => p.low < pool.high && p.high > pool.low);
-    }).length;
+  const map = document.getElementById('pool-map');
+  if (!map) return;
+  // Use merged pools from ALL modes for the current TF (same as Pools tab)
+  const pools = (typeof _getPoolsForTF === 'function')
+    ? _getPoolsForTF(currentTF)
+    : getCurrentPools();
+  const all = [...(pools.long_pools||[]), ...(pools.short_pools||[])];
+  if (!all.length) {
+    map.querySelectorAll('.pool-zone').forEach(el=>el.remove());
+    const priceY2 = (map.clientHeight||260) * 0.5;
+    document.getElementById('price-line').style.top = priceY2+'px';
+    document.getElementById('price-label-map').style.top = priceY2+'px';
+    document.getElementById('price-label-map').textContent = fmtPrice(currentPrice);
+    return;
   }
-  all.forEach(pool=>{
-    const isLong=pools.long_pools.includes(pool), el=document.createElement('div');
-    el.className='pool-zone '+pool.intensity;
-    const topY=toY(pool.high), botY=toY(pool.low), h=Math.max(botY-topY,16);
-    el.style.cssText='top:'+topY+'px;height:'+h+'px;line-height:'+h+'px';
+  const prices = all.flatMap(p=>[p.low, p.high]);
+  const priceRange = Math.max(...prices) - Math.min(...prices);
+  const margin = Math.max(priceRange * 0.12, 2000);
+  const minP = Math.min(...prices, currentPrice) - margin;
+  const maxP = Math.max(...prices, currentPrice) + margin;
+  const range = maxP - minP;
+  const mapH = map.clientHeight || 260;
+  const toY = p => ((maxP - p) / range) * mapH;
+  map.querySelectorAll('.pool-zone').forEach(el => el.remove());
+  // Confluence detection across all TFs and modes
+  const tfList = ['5m','15m','30m','1H','4H','8H','1D','1W'];
+  function countTFConfluence(pool, side) {
+    let count = 0;
+    Object.values(POOLS).forEach(modeData => {
+      tfList.forEach(tf => {
+        const tfData = modeData[tf];
+        if (!tfData) return;
+        const arr = tfData[side+'_pools'] || [];
+        if (arr.some(p => p.low < pool.high && p.high > pool.low)) count++;
+      });
+    });
+    return Math.min(count, 4);
+  }
+  all.forEach(pool => {
+    const isLong = (pools.long_pools||[]).includes(pool);
+    const el = document.createElement('div');
+    el.className = 'pool-zone ' + pool.intensity;
+    const topY = toY(pool.high), botY = toY(pool.low);
+    const h = Math.max(botY - topY, 16);
+    el.style.cssText = 'top:'+topY+'px;height:'+h+'px;line-height:'+h+'px';
     const side = isLong ? 'long' : 'short';
     const confCount = countTFConfluence(pool, side);
-    const confBadge = confCount >= 3 ? ' <span style="font-size:9px;background:rgba(188,140,255,0.35);border:1px solid var(--purple);border-radius:3px;padding:0 3px;color:var(--purple)">⚡MAX</span>'
-                    : confCount === 2 ? ' <span style="font-size:9px;background:rgba(255,215,0,0.2);border:1px solid var(--yellow);border-radius:3px;padding:0 3px;color:var(--yellow)">✦2TF</span>'
+    const confBadge = confCount >= 4 ? ' <span style="font-size:9px;background:rgba(188,140,255,0.35);border:1px solid var(--purple);border-radius:3px;padding:0 3px;color:var(--purple)">⚡MAX</span>'
+                    : confCount >= 2 ? ' <span style="font-size:9px;background:rgba(255,215,0,0.2);border:1px solid var(--yellow);border-radius:3px;padding:0 3px;color:var(--yellow)">✦'+confCount+'TF</span>'
                     : '';
-    el.innerHTML='<span>'+(isLong?'▲':'▼')+' '+pool.label+confBadge+'</span><span class="pool-label-right">'+fmtPrice(pool.low)+'–'+fmtPrice(pool.high)+'</span>';
+    const tfTag = pool._tf ? ' <span style="font-size:9px;color:var(--muted)">['+pool._tf+']</span>' : '';
+    el.innerHTML = '<span>'+(isLong?'▲':'▼')+' '+pool.label+tfTag+confBadge+'</span><span class="pool-label-right">'+fmtPrice(pool.low)+'–'+fmtPrice(pool.high)+'</span>';
     map.appendChild(el);
   });
-  const priceY=toY(currentPrice);
-  document.getElementById('price-line').style.top=priceY+'px';
-  document.getElementById('price-label-map').style.top=priceY+'px';
-  document.getElementById('price-label-map').textContent=fmtPrice(currentPrice);
+  const priceY = toY(currentPrice);
+  document.getElementById('price-line').style.top = priceY+'px';
+  document.getElementById('price-label-map').style.top = priceY+'px';
+  document.getElementById('price-label-map').textContent = fmtPrice(currentPrice);
 }
 
 // ════════════════════════════════════════════════════════
 // LEVELS TABLE
 // ════════════════════════════════════════════════════════
 function buildLevelsTable() {
-  const tbody=document.getElementById('levels-tbody'), pools=getCurrentPools(), rows=[];
+  const tbody=document.getElementById('levels-tbody');
+  const pools=(typeof _getPoolsForTF==='function')?_getPoolsForTF(currentTF):getCurrentPools();
+  const rows=[];
   pools.short_pools.slice().reverse().forEach(p=>rows.push({price:p.high,label:p.label,type:'short',intensity:p.intensity}));
   if (currentPrice) rows.push({price:currentPrice,label:'PRECIO ACTUAL',type:'current',intensity:'white'});
   pools.long_pools.forEach(p=>rows.push({price:p.low,label:p.label,type:'long',intensity:p.intensity}));
