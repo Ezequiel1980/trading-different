@@ -981,8 +981,10 @@ canvas.chart-canvas {
 .dot-white  { background:#fff; }
 .dot-yellow { background:var(--gold); }
 
-/* Calc modal */
-.calc-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:500; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+/* Edit modal overlay (pool editor, journal, calc) */
+.modal-overlay      { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:100000; display:none; align-items:center; justify-content:center; backdrop-filter:blur(6px); }
+.modal-overlay.open { display:flex; }
+.calc-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:100000; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
 .calc-modal-overlay.open { display:flex; }
 
 /* ── Ocultar modal de indicadores solo en tab Gráfico ── */
