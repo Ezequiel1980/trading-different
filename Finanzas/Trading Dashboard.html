@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finanzas — BTC Trading Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+/* ===================== CSS RESET & VARIABLES ===================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Surfaces */
+  --surface-0: #080b10;
+  --surface-1: rgba(22,27,34,0.82);
+  --surface-2: rgba(33,38,45,0.65);
+  --surface-3: rgba(44,50,58,0.5);
+
+  /* Borders */
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-mid: rgba(255,255,255,0.10);
+  --border-accent-green: rgba(63,185,80,0.32);
+  --border-accent-red: rgba(248,81,73,0.28);
+
+  /* Semantic colors */
+  --green: #3fb950;
+  --green-dim: rgba(63,185,80,0.7);
+  --red: #f85149;
+  --red-dim: rgba(248,81,73,0.7);
+  --gold: #f0c040;
+  --gold-dim: rgba(240,192,64,0.7);
+  --purple: #8957e5;
+  --blue: #388bfd;
+
+  /* Text */
+  --text-primary: rgba(255,255,255,0.92);
+  --text-secondary: rgba(255,255,255,0.5);
+  --text-tertiary: rgba(255,255,255,0.28);
+  --text-label: rgba(255,255,255,0.38);
+
+  /* Glows */
+  --glow-green: 0 0 24px rgba(63,185,80,0.18);
+  --glow-red:   0 0 24px rgba(248,81,73,0.18);
+  --glow-gold:  0 0 20px rgba(240,192,64,0.14);
+  --glow-purple: 0 0 20px rgba(137,87,229,0.2);
+  --glow-blue:  0 0 20px rgba(56,139,253,0.18);
+  --glow-nav: 0 1px 0 rgba(255,255,255,0.04), 0 4px 24px rgba(0,0,0,0.5);
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Mono', monospace;
+  --font-ui: 'DM Sans', system-ui, sans-serif;
+
+  /* Layout */
+  --navbar-h: 52px;
+  --panel-w: 340px;
+  --bottom-panel-h: 320px;
+  --card-pad: 14px;
+  --gap: 1px;
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  /* Transitions */
+  --ease-snap: cubic-bezier(0.16,1,0.3,1);
+  --ease-out: cubic-bezier(0.0,0,0.2,1);
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ===================== GLASS UTILITY ===================== */
+.glass {
+  background: var(--surface-1);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.4);
+}
+.glass-2 {
+  background: var(--surface-2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* ===================== NAVBAR ===================== */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--navbar-h);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 0;
+  background: rgba(8,11,16,0.85);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: var(--glow-nav);
+}
+
+.navbar-logo {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 28px;
+}
+.navbar-logo-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(63,185,80,0.7);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity:1; box-shadow: 0 0 8px rgba(63,185,80,0.7); }
+  50% { opacity:0.7; box-shadow: 0 0 18px rgba(63,185,80,0.5); }
+}
+
+.navbar-pairs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+.navbar-pair {
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.navbar-pair:hover { color: var(--text-primary); background: var(--surface-2); }
+.navbar-pair.active {
+  color: var(--green);
+  background: rgba(63,185,80,0.08);
+  border-color: rgba(63,185,80,0.2);
+  box-shadow: var(--glow-green);
+}
+.navbar-pair-change {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.navbar-pair-change.up { color: var(--green); background: rgba(63,185,80,0.12); }
+.navbar-pair-change.down { color: var(--red); background: rgba(248,81,73,0.12); }
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.navbar-status {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.navbar-status-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  font-family: var(--font-ui);
+}
+.btn-primary {
+  background: linear-gradient(135deg, #3fb950 0%, #2ea043 100%);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(63,185,80,0.3), 0 2px 6px rgba(0,0,0,0.3);
+}
+.btn-primary:hover { box-shadow: 0 0 20px rgba(63,185,80,0.5), 0 2px 8px rgba(0,0,0,0.4); transform: translateY(-1px); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border-mid);
+}
+.btn-ghost:hover { color: var(--text-primary); border-color: var(--border-mid); background: var(--surface-2); }
+
+/* ===================== LAYOUT ===================== */
+.app-layout {
+  display: grid;
+  grid-template-columns: 1fr var(--panel-w);
+  grid-template-rows: 1fr;
+  height: calc(100vh - var(--navbar-h));
+  gap: var(--gap);
+  background: rgba(255,255,255,0.03);
+  overflow: hidden;
+}
+
+.main-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+
+/* ===================== PRICE HEADER ===================== */
+.price-header {
+  padding: 16px 20px 12px;
+  background: var(--surface-1);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-shrink: 0;
+}
+
+.price-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.price-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  font-family: var(--font-mono);
+}
+.price-value {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.15s;
+}
+.price-value.tick-up { color: var(--green); text-shadow: 0 0 28px rgba(63,185,80,0.5); }
+.price-value.tick-down { color: var(--red); text-shadow: 0 0 28px rgba(248,81,73,0.5); }
+
+.price-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 4px;
+  align-self: flex-start;
+}
+.price-badge.up {
+  color: var(--green);
+  background: rgba(63,185,80,0.12);
+  border: 1px solid rgba(63,185,80,0.22);
+  box-shadow: var(--glow-green);
+}
+.price-badge.down {
+  color: var(--red);
+  background: rgba(248,81,73,0.12);
+  border: 1px solid rgba(248,81,73,0.22);
+  box-shadow: var(--glow-red);
+}
+
+.price-stats {
+  display: flex;
+  gap: 24px;
+  flex: 1;
+}
+.price-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.price-stat-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  font-family: var(--font-mono);
+}
+.price-stat-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================== CHART AREA ===================== */
+.chart-area {
+  flex: 1;
+  min-height: 0;
+  background: var(--surface-1);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.chart-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.chart-tf {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.12s;
+}
+.chart-tf:hover { color: var(--text-primary); background: var(--surface-2); }
+.chart-tf.active {
+  color: var(--green);
+  background: rgba(63,185,80,0.1);
+}
+.chart-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-subtle);
+  margin: 0 4px;
+}
+.chart-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+canvas.chart-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ===================== BOTTOM PANEL ===================== */
+.bottom-panel {
+  height: var(--bottom-panel-h);
+  background: var(--surface-1);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border-subtle);
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: height 0.3s var(--ease-snap);
+}
+.bottom-panel.collapsed { height: 42px; }
+
+.panel-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  height: 42px;
+}
+.panel-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.15s;
+  position: relative;
+  letter-spacing: 0.01em;
+}
+.panel-tab:hover { color: var(--text-primary); }
+.panel-tab.active {
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+}
+.panel-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+.tab-icon { font-size: 12px; }
+
+.panel-collapse-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all 0.12s;
+  font-family: var(--font-mono);
+}
+.panel-collapse-btn:hover { color: var(--text-secondary); background: var(--surface-2); }
+
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.06) transparent;
+  animation: fadeSlideUp 0.2s var(--ease-out);
+}
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================== TABLES ===================== */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table th {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  font-family: var(--font-mono);
+  padding: 8px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  background: var(--surface-1);
+  backdrop-filter: blur(10px);
+}
+.data-table td {
+  padding: 7px 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+}
+.data-table tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+.data-table tr:hover td { background: rgba(255,255,255,0.04); }
+.data-table td.green { color: var(--green); }
+.data-table td.red { color: var(--red); }
+.data-table td.gold { color: var(--gold); }
+
+/* ===================== RIGHT PANEL CARDS ===================== */
+.rp-card {
+  background: var(--surface-1);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  padding: var(--card-pad);
+  flex-shrink: 0;
+}
+.rp-card-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  font-family: var(--font-mono);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rp-card-title-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+/* ===================== ORDER BOOK ===================== */
+.ob-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+  padding: 3px 0;
+  position: relative;
+  cursor: pointer;
+  border-radius: 2px;
+  overflow: hidden;
+  transition: background 0.1s;
+}
+.ob-row:hover { background: rgba(255,255,255,0.03); }
+.ob-bar {
+  position: absolute;
+  top: 0; bottom: 0;
+  right: 0;
+  pointer-events: none;
+  border-radius: 2px;
+  opacity: 0.12;
+  transition: width 0.3s var(--ease-snap);
+}
+.ob-bar.ask { background: var(--red); }
+.ob-bar.bid { background: var(--green); left: 0; right: auto; }
+.ob-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  z-index: 1;
+}
+.ob-val.price.ask { color: var(--red); }
+.ob-val.price.bid { color: var(--green); }
+.ob-val.size { color: var(--text-secondary); text-align: right; }
+.ob-val.total { color: var(--text-tertiary); text-align: right; }
+.ob-spread {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  margin: 4px 0;
+}
+.ob-spread-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  font-family: var(--font-mono);
+}
+.ob-spread-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  text-shadow: var(--glow-gold);
+}
+
+/* ===================== POOL MAP ===================== */
+.pool-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  align-items: flex-end;
+  height: 90px;
+}
+.pool-bar-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  justify-content: flex-end;
+  position: relative;
+  cursor: pointer;
+}
+.pool-bar {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  position: relative;
+  min-height: 4px;
+}
+.pool-bar-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  text-align: center;
+}
+.pool-tooltip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface-0);
+  border: 1px solid var(--border-mid);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ===================== SIGNALS ===================== */
+.signal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.signal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.signal-item:hover { border-color: var(--border-mid); background: var(--surface-3); }
+.signal-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.signal-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  font-family: var(--font-mono);
+}
+.signal-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.signal-badge.buy {
+  color: var(--green);
+  background: rgba(63,185,80,0.12);
+  border: 1px solid rgba(63,185,80,0.2);
+  box-shadow: 0 0 8px rgba(63,185,80,0.15);
+}
+.signal-badge.sell {
+  color: var(--red);
+  background: rgba(248,81,73,0.12);
+  border: 1px solid rgba(248,81,73,0.2);
+  box-shadow: 0 0 8px rgba(248,81,73,0.15);
+}
+.signal-badge.neutral {
+  color: var(--gold);
+  background: rgba(240,192,64,0.1);
+  border: 1px solid rgba(240,192,64,0.18);
+}
+.signal-strength {
+  display: flex;
+  gap: 2px;
+}
+.signal-strength-bar {
+  width: 3px;
+  border-radius: 2px;
+}
+
+/* ===================== PnL CARD ===================== */
+.pnl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.pnl-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+.pnl-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  font-family: var(--font-mono);
+}
+.pnl-value {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.pnl-value.pos { color: var(--green); text-shadow: var(--glow-green); }
+.pnl-value.neg { color: var(--red); text-shadow: var(--glow-red); }
+.pnl-value.gold { color: var(--gold); text-shadow: var(--glow-gold); }
+
+/* ===================== MINI SPARKLINE ===================== */
+.sparkline-wrap {
+  position: relative;
+  height: 36px;
+  margin-top: 8px;
+}
+
+/* ===================== SCROLLBAR ===================== */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+/* ===================== TWEAKS PANEL ===================== */
+.tweaks-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999;
+}
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 900px) {
+  :root { --panel-w: 280px; }
+}
+@media (max-width: 700px) {
+  .app-layout { grid-template-columns: 1fr; }
+  .right-panel { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" data-presets="react">
+// Wait for tweaks-panel exports before running app
+function waitForTweaks(cb) {
+  if (window.useTweaks) { cb(); return; }
+  const t = setInterval(() => { if (window.useTweaks) { clearInterval(t); cb(); } }, 20);
+}
+waitForTweaks(() => {
+/* =================== CONSTANTS & MOCK DATA =================== */
+const PAIRS = [
+  { sym: 'BTC/USDT', price: 97842.50, change: 2.34 },
+  { sym: 'ETH/USDT', price: 3284.10, change: -1.12 },
+  { sym: 'SOL/USDT', price: 182.45, change: 4.71 },
+  { sym: 'BNB/USDT', price: 612.30, change: 0.88 },
+];
+
+const TIMEFRAMES = ['1m','5m','15m','1h','4h','1D','1W'];
+
+const SIGNALS_DATA = [
+  { name: 'RSI-14', badge: 'buy', strength: 4, dot: '#3fb950' },
+  { name: 'MACD Cross', badge: 'buy', strength: 5, dot: '#3fb950' },
+  { name: 'BB Squeeze', badge: 'neutral', strength: 3, dot: '#f0c040' },
+  { name: 'EMA 200', badge: 'buy', strength: 4, dot: '#3fb950' },
+  { name: 'Volume Profile', badge: 'sell', strength: 2, dot: '#f85149' },
+  { name: 'Stoch RSI', badge: 'neutral', strength: 3, dot: '#f0c040' },
+];
+
+const POOLS_DATA = [
+  { label: 'Binance', pct: 78, btc: '12,450', color: '#f0c040' },
+  { label: 'CB', pct: 52, btc: '8,210', color: '#388bfd' },
+  { label: 'OKX', pct: 65, btc: '10,380', color: '#8957e5' },
+  { label: 'Bybit', pct: 41, btc: '6,540', color: '#3fb950' },
+  { label: 'Kraken', pct: 33, btc: '5,210', color: '#f85149' },
+];
+
+function genOrderBook() {
+  const base = 97842.50;
+  const asks = Array.from({length:8},(_,i) => {
+    const price = (base + (i+1)*2.5 + Math.random()*1.5).toFixed(2);
+    const size  = (Math.random()*4+0.3).toFixed(4);
+    return { price, size, total: (parseFloat(price)*parseFloat(size)).toFixed(2) };
+  });
+  const bids = Array.from({length:8},(_,i) => {
+    const price = (base - (i+1)*2.5 - Math.random()*1.5).toFixed(2);
+    const size  = (Math.random()*4+0.3).toFixed(4);
+    return { price, size, total: (parseFloat(price)*parseFloat(size)).toFixed(2) };
+  });
+  return { asks: asks.reverse(), bids };
+}
+
+function genTrades() {
+  const base = 97842.50;
+  return Array.from({length:20}, (_, i) => {
+    const side = Math.random() > 0.48 ? 'buy' : 'sell';
+    const price = (base + (Math.random()-0.5)*40).toFixed(2);
+    const qty   = (Math.random()*2+0.01).toFixed(4);
+    const mins  = i;
+    const t     = new Date(Date.now() - mins*12000);
+    return {
+      side, price, qty,
+      value: (parseFloat(price)*parseFloat(qty)).toFixed(2),
+      time: t.toTimeString().slice(0,8),
+    };
+  });
+}
+
+function genPositions() {
+  return [
+    { sym:'BTC/USDT', side:'Long', size:'0.2450', entry:'94,210.00', mark:'97,842.50', pnl:'+891.27', pnlPct:'+3.86%', liq:'88,500.00' },
+    { sym:'ETH/USDT', side:'Short', size:'2.1000', entry:'3,380.00', mark:'3,284.10', pnl:'+201.39', pnlPct:'+2.84%', liq:'3,650.00' },
+  ];
+}
+
+/* =================== CHART RENDERER =================== */
+function drawChart(canvas, width, height, accent) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+  ctx.scale(dpr, dpr);
+
+  // Background
+  ctx.fillStyle = 'rgba(8,11,16,0)';
+  ctx.fillRect(0, 0, width, height);
+
+  // Grid lines
+  const gridCount = 5;
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= gridCount; i++) {
+    const y = (height / gridCount) * i;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+  for (let i = 0; i <= 8; i++) {
+    const x = (width / 8) * i;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+
+  // Price line (fake candles via area chart)
+  const pts = 60;
+  const prices = [];
+  let p = 97200;
+  for (let i = 0; i < pts; i++) {
+    p += (Math.random()-0.48)*180;
+    p = Math.max(95000, Math.min(99500, p));
+    prices.push(p);
+  }
+  const minP = Math.min(...prices);
+  const maxP = Math.max(...prices);
+  const range = maxP - minP || 1;
+  const pad = 30;
+  const fy = v => height - pad - ((v - minP) / range) * (height - 2*pad);
+  const fx = i => (i / (pts-1)) * width;
+
+  // Area gradient
+  const grad = ctx.createLinearGradient(0, pad, 0, height-pad);
+  grad.addColorStop(0, accent === 'red' ? 'rgba(248,81,73,0.25)' : 'rgba(63,185,80,0.22)');
+  grad.addColorStop(1, 'rgba(8,11,16,0)');
+
+  ctx.beginPath();
+  ctx.moveTo(fx(0), height);
+  ctx.lineTo(fx(0), fy(prices[0]));
+  for (let i = 1; i < pts; i++) ctx.lineTo(fx(i), fy(prices[i]));
+  ctx.lineTo(fx(pts-1), height);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(fx(0), fy(prices[0]));
+  for (let i = 1; i < pts; i++) ctx.lineTo(fx(i), fy(prices[i]));
+  ctx.strokeStyle = accent === 'red' ? '#f85149' : '#3fb950';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Glow line
+  ctx.save();
+  ctx.shadowColor = accent === 'red' ? 'rgba(248,81,73,0.6)' : 'rgba(63,185,80,0.6)';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(fx(0), fy(prices[0]));
+  for (let i = 1; i < pts; i++) ctx.lineTo(fx(i), fy(prices[i]));
+  ctx.strokeStyle = accent === 'red' ? 'rgba(248,81,73,0.4)' : 'rgba(63,185,80,0.4)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+
+  // Price labels
+  ctx.font = `500 10px 'JetBrains Mono', monospace`;
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= gridCount; i++) {
+    const val = minP + (range / gridCount) * (gridCount - i);
+    const y = (height / gridCount) * i;
+    ctx.fillText('$' + val.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','), width - 4, y + 12);
+  }
+}
+
+/* =================== SPARKLINE =================== */
+function Sparkline({ color, glow }) {
+  const canvasRef = React.useRef(null);
+  React.useEffect(() => {
+    const cvs = canvasRef.current;
+    if (!cvs) return;
+    const w = cvs.parentElement.clientWidth;
+    const h = 36;
+    const dpr = window.devicePixelRatio || 1;
+    cvs.width = w * dpr; cvs.height = h * dpr;
+    cvs.style.width = w+'px'; cvs.style.height = h+'px';
+    const ctx = cvs.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const pts = 20;
+    const vs = [];
+    let v = 50;
+    for (let i=0;i<pts;i++){v+=(Math.random()-0.47)*8;v=Math.max(10,Math.min(90,v));vs.push(v);}
+    const fx = i=>(i/(pts-1))*w;
+    const fy = v=>h - (v/100)*h;
+    ctx.beginPath();
+    ctx.moveTo(fx(0),fy(vs[0]));
+    for(let i=1;i<pts;i++) ctx.lineTo(fx(i),fy(vs[i]));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+  }, [color]);
+  return React.createElement('canvas', { ref: canvasRef, className: 'chart-canvas' });
+}
+
+/* =================== SIGNAL STRENGTH =================== */
+function StrengthBars({ level, color }) {
+  return React.createElement('div', { className: 'signal-strength' },
+    [1,2,3,4,5].map(i =>
+      React.createElement('div', {
+        key: i,
+        className: 'signal-strength-bar',
+        style: {
+          width: 3, height: 6+i*2,
+          background: i <= level ? color : 'rgba(255,255,255,0.12)',
+          borderRadius: 2,
+        }
+      })
+    )
+  );
+}
+
+/* =================== ORDER BOOK =================== */
+function OrderBook({ data }) {
+  const maxBid = Math.max(...data.bids.map(r=>parseFloat(r.size)));
+  const maxAsk = Math.max(...data.asks.map(r=>parseFloat(r.size)));
+  return React.createElement('div', null,
+    // Asks
+    React.createElement('div', { style: { marginBottom: 4 } },
+      data.asks.map((row, i) =>
+        React.createElement('div', { key: i, className: 'ob-row' },
+          React.createElement('div', { className: 'ob-bar ask', style: { width: `${(parseFloat(row.size)/maxAsk)*100}%` } }),
+          React.createElement('span', { className: 'ob-val price ask' }, '$'+parseFloat(row.price).toLocaleString('en-US',{minimumFractionDigits:2})),
+          React.createElement('span', { className: 'ob-val size' }, row.size),
+          React.createElement('span', { className: 'ob-val total' }, '$'+parseFloat(row.total).toLocaleString('en-US',{maximumFractionDigits:0})),
+        )
+      )
+    ),
+    // Spread
+    React.createElement('div', { className: 'ob-spread' },
+      React.createElement('span', { className: 'ob-spread-label' }, 'Spread'),
+      React.createElement('span', { className: 'ob-spread-val' }, '$12.50'),
+      React.createElement('span', { style: { fontSize:9, color:'var(--text-tertiary)', fontFamily:'var(--font-mono)' } }, '0.013%'),
+    ),
+    // Bids
+    React.createElement('div', null,
+      data.bids.map((row, i) =>
+        React.createElement('div', { key: i, className: 'ob-row' },
+          React.createElement('div', { className: 'ob-bar bid', style: { width: `${(parseFloat(row.size)/maxBid)*100}%` } }),
+          React.createElement('span', { className: 'ob-val price bid' }, '$'+parseFloat(row.price).toLocaleString('en-US',{minimumFractionDigits:2})),
+          React.createElement('span', { className: 'ob-val size' }, row.size),
+          React.createElement('span', { className: 'ob-val total' }, '$'+parseFloat(row.total).toLocaleString('en-US',{maximumFractionDigits:0})),
+        )
+      )
+    )
+  );
+}
+
+/* =================== POOL MAP =================== */
+function PoolMap({ data, hovered, setHovered }) {
+  return React.createElement('div', { className: 'pool-grid' },
+    data.map((pool, i) =>
+      React.createElement('div', {
+        key: i,
+        className: 'pool-bar-wrap',
+        onMouseEnter: () => setHovered(i),
+        onMouseLeave: () => setHovered(null),
+      },
+        hovered === i && React.createElement('div', { className: 'pool-tooltip' },
+          React.createElement('div', { style: { color: pool.color, fontWeight: 700, fontSize: 11 } }, pool.label),
+          React.createElement('div', { style: { color: 'var(--text-secondary)', fontSize: 10 } }, pool.btc + ' BTC'),
+        ),
+        React.createElement('div', {
+          className: 'pool-bar',
+          style: {
+            height: `${pool.pct}%`,
+            background: `linear-gradient(180deg, ${pool.color} 0%, ${pool.color}88 100%)`,
+            boxShadow: `0 0 10px ${pool.color}44`,
+          }
+        }),
+        React.createElement('div', { className: 'pool-bar-label' }, pool.label),
+      )
+    )
+  );
+}
+
+/* =================== MAIN APP =================== */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#3fb950",
+  "showPnL": true,
+  "chartStyle": "candle",
+  "density": "spacious"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  const [activePair, setActivePair] = React.useState(0);
+  const [activeTab, setActiveTab] = React.useState('positions');
+  const [activeTF, setActiveTF] = React.useState('1h');
+  const [panelCollapsed, setPanelCollapsed] = React.useState(false);
+  const [price, setPrice] = React.useState(97842.50);
+  const [priceTick, setPriceTick] = React.useState('');
+  const [ob, setOb] = React.useState(() => genOrderBook());
+  const [trades, setTrades] = React.useState(() => genTrades());
+  const [poolHovered, setPoolHovered] = React.useState(null);
+  const canvasRef = React.useRef(null);
+  const chartWrapRef = React.useRef(null);
+
+  // Live price tick simulation
+  React.useEffect(() => {
+    const iv = setInterval(() => {
+      setPrice(prev => {
+        const delta = (Math.random()-0.48)*35;
+        const next = Math.max(94000, Math.min(102000, prev + delta));
+        setPriceTick(delta > 0 ? 'tick-up' : 'tick-down');
+        setTimeout(() => setPriceTick(''), 150);
+        return parseFloat(next.toFixed(2));
+      });
+      setOb(genOrderBook());
+    }, 2000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Chart draw
+  React.useEffect(() => {
+    const wrap = chartWrapRef.current;
+    if (!wrap || !canvasRef.current) return;
+    const ro = new ResizeObserver(() => {
+      drawChart(canvasRef.current, wrap.clientWidth, wrap.clientHeight, tweaks.accentColor === '#f85149' ? 'red' : 'green');
+    });
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, [tweaks.accentColor, activeTF]);
+
+  const pair = PAIRS[activePair];
+  const positions = genPositions();
+
+  const TABS = [
+    { id: 'positions', label: 'Positions', icon: '◈' },
+    { id: 'orders',    label: 'Open Orders', icon: '◇' },
+    { id: 'trades',    label: 'Recent Trades', icon: '⟳' },
+    { id: 'history',   label: 'History', icon: '☰' },
+  ];
+
+  return React.createElement(React.Fragment, null,
+    // Navbar
+    React.createElement('nav', { className: 'navbar' },
+      React.createElement('div', { className: 'navbar-logo' },
+        React.createElement('div', { className: 'navbar-logo-dot' }),
+        'FINANZAS'
+      ),
+      React.createElement('div', { className: 'navbar-pairs' },
+        PAIRS.map((p, i) =>
+          React.createElement('button', {
+            key: i,
+            className: `navbar-pair${activePair === i ? ' active' : ''}`,
+            onClick: () => setActivePair(i),
+          },
+            p.sym,
+            React.createElement('span', {
+              className: `navbar-pair-change ${p.change >= 0 ? 'up' : 'down'}`
+            }, (p.change >= 0 ? '+' : '') + p.change + '%')
+          )
+        )
+      ),
+      React.createElement('div', { className: 'navbar-actions' },
+        React.createElement('div', { className: 'navbar-status' },
+          React.createElement('div', { className: 'navbar-status-dot' }),
+          'LIVE'
+        ),
+        React.createElement('button', { className: 'btn btn-ghost' }, 'Alerts'),
+        React.createElement('button', { className: 'btn btn-primary' }, '+ Trade'),
+      )
+    ),
+
+    // Main layout
+    React.createElement('div', { className: 'app-layout' },
+      // Left / main column
+      React.createElement('div', { className: 'main-col' },
+        // Price header
+        React.createElement('div', { className: 'price-header' },
+          React.createElement('div', { className: 'price-main' },
+            React.createElement('div', { className: 'price-label' }, pair.sym),
+            React.createElement('div', { className: `price-value ${priceTick}` },
+              '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2 })
+            ),
+            React.createElement('div', { className: `price-badge ${pair.change >= 0 ? 'up' : 'down'}` },
+              pair.change >= 0 ? '▲' : '▼',
+              ' ',
+              Math.abs(pair.change) + '%',
+              ' 24h'
+            ),
+          ),
+          React.createElement('div', { className: 'price-stats' },
+            [
+              { label: '24h High', value: '$98,450.00', cls: '' },
+              { label: '24h Low',  value: '$95,120.50', cls: '' },
+              { label: '24h Vol',  value: '24,812 BTC', cls: '' },
+              { label: 'Funding',  value: '+0.0100%',   cls: '' },
+              { label: 'Open Int', value: '$4.2B',      cls: '' },
+            ].map((s, i) =>
+              React.createElement('div', { key: i, className: 'price-stat' },
+                React.createElement('div', { className: 'price-stat-label' }, s.label),
+                React.createElement('div', { className: 'price-stat-value', style: s.cls ? { color: `var(--${s.cls})` } : {} }, s.value),
+              )
+            )
+          ),
+          tweaks.showPnL && React.createElement('div', { style: { marginLeft: 'auto', display:'flex', gap:8 } },
+            React.createElement('div', { className: 'pnl-item', style: { padding:'10px 16px', borderRadius: 8 } },
+              React.createElement('div', { className: 'pnl-label' }, 'Unrealized P&L'),
+              React.createElement('div', { className: 'pnl-value pos' }, '+$1,092.66'),
+            ),
+          )
+        ),
+
+        // Chart
+        React.createElement('div', { className: 'chart-area' },
+          React.createElement('div', { className: 'chart-toolbar' },
+            TIMEFRAMES.map(tf =>
+              React.createElement('button', {
+                key: tf,
+                className: `chart-tf${activeTF === tf ? ' active' : ''}`,
+                onClick: () => setActiveTF(tf),
+              }, tf)
+            ),
+            React.createElement('div', { className: 'chart-divider' }),
+            React.createElement('button', { className: 'chart-tf' }, 'MA'),
+            React.createElement('button', { className: 'chart-tf' }, 'BB'),
+            React.createElement('button', { className: 'chart-tf' }, 'VOL'),
+          ),
+          React.createElement('div', { className: 'chart-canvas-wrap', ref: chartWrapRef },
+            React.createElement('canvas', { className: 'chart-canvas', ref: canvasRef })
+          )
+        ),
+
+        // Bottom panel
+        React.createElement('div', { className: `bottom-panel${panelCollapsed ? ' collapsed' : ''}` },
+          React.createElement('div', { className: 'panel-tabs' },
+            TABS.map(tab =>
+              React.createElement('button', {
+                key: tab.id,
+                className: `panel-tab${activeTab === tab.id ? ' active' : ''}`,
+                onClick: () => { setActiveTab(tab.id); if (panelCollapsed) setPanelCollapsed(false); },
+              },
+                React.createElement('span', { className: 'tab-icon' }, tab.icon),
+                tab.label
+              )
+            ),
+            React.createElement('button', {
+              className: 'panel-collapse-btn',
+              onClick: () => setPanelCollapsed(v => !v),
+            }, panelCollapsed ? '▲ Expand' : '▼ Collapse')
+          ),
+          !panelCollapsed && React.createElement('div', { className: 'panel-content', key: activeTab },
+            activeTab === 'positions' && React.createElement('table', { className: 'data-table' },
+              React.createElement('thead', null,
+                React.createElement('tr', null,
+                  ['Symbol','Side','Size','Entry Price','Mark Price','Unrealized P&L','Liq. Price','Action'].map(h =>
+                    React.createElement('th', { key: h }, h)
+                  )
+                )
+              ),
+              React.createElement('tbody', null,
+                positions.map((pos, i) =>
+                  React.createElement('tr', { key: i },
+                    React.createElement('td', null, React.createElement('strong', null, pos.sym)),
+                    React.createElement('td', { className: pos.side === 'Long' ? 'green' : 'red' }, pos.side),
+                    React.createElement('td', null, pos.size),
+                    React.createElement('td', null, '$'+pos.entry),
+                    React.createElement('td', null, '$'+pos.mark),
+                    React.createElement('td', { className: pos.pnl.startsWith('+') ? 'green' : 'red' },
+                      pos.pnl + ' (' + pos.pnlPct + ')'
+                    ),
+                    React.createElement('td', { className: 'red' }, '$'+pos.liq),
+                    React.createElement('td', null,
+                      React.createElement('button', { className: 'btn btn-ghost', style:{padding:'3px 8px',fontSize:10} }, 'Close'),
+                    )
+                  )
+                )
+              )
+            ),
+            activeTab === 'trades' && React.createElement('table', { className: 'data-table' },
+              React.createElement('thead', null,
+                React.createElement('tr', null,
+                  ['Time','Side','Price','Qty','Value'].map(h =>
+                    React.createElement('th', {key:h}, h)
+                  )
+                )
+              ),
+              React.createElement('tbody', null,
+                trades.map((t, i) =>
+                  React.createElement('tr', { key: i },
+                    React.createElement('td', { style:{color:'var(--text-tertiary)'} }, t.time),
+                    React.createElement('td', { className: t.side === 'buy' ? 'green' : 'red' }, t.side.toUpperCase()),
+                    React.createElement('td', { className: t.side === 'buy' ? 'green' : 'red' }, '$'+parseFloat(t.price).toLocaleString('en-US',{minimumFractionDigits:2})),
+                    React.createElement('td', null, t.qty),
+                    React.createElement('td', null, '$'+parseFloat(t.value).toLocaleString('en-US',{maximumFractionDigits:0})),
+                  )
+                )
+              )
+            ),
+            activeTab === 'orders' && React.createElement('div', { style:{padding:'20px',color:'var(--text-tertiary)',textAlign:'center',fontFamily:'var(--font-mono)',fontSize:12} },
+              'No open orders'
+            ),
+            activeTab === 'history' && React.createElement('div', { style:{padding:'20px',color:'var(--text-tertiary)',textAlign:'center',fontFamily:'var(--font-mono)',fontSize:12} },
+              'Trade history loading...'
+            ),
+          )
+        )
+      ),
+
+      // Right panel
+      React.createElement('div', { className: 'right-panel' },
+        // Order book
+        React.createElement('div', { className: 'rp-card' },
+          React.createElement('div', { className: 'rp-card-title' },
+            React.createElement('div', { className: 'rp-card-title-dot' }),
+            'Order Book'
+          ),
+          // Header row
+          React.createElement('div', { style: { display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:4, paddingBottom:4, marginBottom:4, borderBottom:'1px solid var(--border-subtle)' } },
+            ['PRICE','SIZE','TOTAL'].map(h =>
+              React.createElement('span', {
+                key: h,
+                style: { fontSize:9, fontWeight:700, letterSpacing:'0.1em', color:'var(--text-label)', fontFamily:'var(--font-mono)' }
+              }, h)
+            )
+          ),
+          React.createElement(OrderBook, { data: ob })
+        ),
+
+        // Signals
+        React.createElement('div', { className: 'rp-card' },
+          React.createElement('div', { className: 'rp-card-title' },
+            React.createElement('div', { className: 'rp-card-title-dot', style:{background:'var(--purple)',boxShadow:'0 0 6px var(--purple)'} }),
+            'Signals'
+          ),
+          React.createElement('div', { className: 'signal-list' },
+            SIGNALS_DATA.map((sig, i) =>
+              React.createElement('div', { key: i, className: 'signal-item' },
+                React.createElement('div', { className: 'signal-dot', style:{background:sig.dot,boxShadow:`0 0 6px ${sig.dot}`} }),
+                React.createElement('span', { className: 'signal-name' }, sig.name),
+                React.createElement(StrengthBars, { level: sig.strength, color: sig.dot }),
+                React.createElement('span', { className: `signal-badge ${sig.badge}` }, sig.badge.toUpperCase()),
+              )
+            )
+          )
+        ),
+
+        // Pool map
+        React.createElement('div', { className: 'rp-card' },
+          React.createElement('div', { className: 'rp-card-title' },
+            React.createElement('div', { className: 'rp-card-title-dot', style:{background:'var(--gold)',boxShadow:'0 0 6px var(--gold)'} }),
+            'Liquidity Pools'
+          ),
+          React.createElement(PoolMap, { data: POOLS_DATA, hovered: poolHovered, setHovered: setPoolHovered }),
+        ),
+
+        // P&L summary
+        tweaks.showPnL && React.createElement('div', { className: 'rp-card' },
+          React.createElement('div', { className: 'rp-card-title' },
+            React.createElement('div', { className: 'rp-card-title-dot', style:{background:'var(--gold)',boxShadow:'0 0 6px var(--gold)'} }),
+            "Today's P&L"
+          ),
+          React.createElement('div', { className: 'pnl-grid' },
+            React.createElement('div', { className: 'pnl-item' },
+              React.createElement('div', { className: 'pnl-label' }, 'Realized'),
+              React.createElement('div', { className: 'pnl-value pos' }, '+$482.30'),
+            ),
+            React.createElement('div', { className: 'pnl-item' },
+              React.createElement('div', { className: 'pnl-label' }, 'Unrealized'),
+              React.createElement('div', { className: 'pnl-value pos' }, '+$1,092.66'),
+            ),
+            React.createElement('div', { className: 'pnl-item' },
+              React.createElement('div', { className: 'pnl-label' }, 'Total Fees'),
+              React.createElement('div', { className: 'pnl-value neg' }, '-$18.44'),
+            ),
+            React.createElement('div', { className: 'pnl-item' },
+              React.createElement('div', { className: 'pnl-label' }, 'Win Rate'),
+              React.createElement('div', { className: 'pnl-value gold' }, '68.4%'),
+            ),
+          ),
+          React.createElement('div', { className: 'sparkline-wrap' },
+            React.createElement(Sparkline, { color: '#3fb950', glow: 'rgba(63,185,80,0.6)' })
+          )
+        ),
+      )
+    ),
+
+    // Tweaks panel
+    React.createElement(TweaksPanel, null,
+      React.createElement(TweakSection, { label: 'Theme' }),
+      React.createElement(TweakColor, {
+        label: 'Accent Color',
+        value: tweaks.accentColor,
+        options: ['#3fb950','#388bfd','#8957e5','#f0c040'],
+        onChange: v => setTweak('accentColor', v),
+      }),
+      React.createElement(TweakRadio, {
+        label: 'Density',
+        value: tweaks.density,
+        options: ['compact','normal','spacious'],
+        onChange: v => setTweak('density', v),
+      }),
+      React.createElement(TweakSection, { label: 'Display' }),
+      React.createElement(TweakToggle, {
+        label: 'Show P&L',
+        value: tweaks.showPnL,
+        onChange: v => setTweak('showPnL', v),
+      }),
+      React.createElement(TweakRadio, {
+        label: 'Chart Style',
+        value: tweaks.chartStyle,
+        options: ['area','candle'],
+        onChange: v => setTweak('chartStyle', v),
+      }),
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+}); // end waitForTweaks
+</script>
+</body>
+</html>

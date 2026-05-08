@@ -982,6 +982,12 @@ canvas.chart-canvas {
 /* Calc modal */
 .calc-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:500; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
 .calc-modal-overlay.open { display:flex; }
+
+/* ── Force-hide ALL modals when NOT on the chart tab ── */
+body:not([data-tab="chart"]) .modal-overlay,
+body:not([data-tab="chart"]) .calc-modal-overlay {
+  display: none !important;
+}
 .calc-modal-card { background:var(--surface-1); border:1px solid var(--border-mid); border-radius:14px; padding:24px; width:460px; max-width:95vw; backdrop-filter:blur(20px); box-shadow:0 24px 80px rgba(0,0,0,0.6); }
 .cm-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
 .cm-title  { font-family:var(--font-mono); font-size:18px; font-weight:800; color:var(--green); letter-spacing:-0.02em; }
@@ -1318,7 +1324,7 @@ body:has(#bottom-panel.open) .app-layout {
 </style>
   <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 </head>
-<body>
+<body data-tab="chart">
 
 <!-- ═══════════ NAVBAR ═══════════ -->
 <nav class="navbar">
@@ -3550,6 +3556,7 @@ let _poolsTabMode = 'scalping';
 
 function setMainTab(tab) {
   currentMainTab = tab;
+  document.body.dataset.tab = tab;   // CSS hook: hides modals on non-chart tabs
   ['chart','analysis','pools'].forEach(t => {
     const panel = document.getElementById('main-panel-' + t);
     const btn   = document.getElementById('mtab-' + t);
@@ -5285,12 +5292,4 @@ async function runBacktestAllTF() {
       </div>
     </div>
 
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-secondary" onclick="closeStudiesModal()">Cerrar</button>
-      <button class="btn btn-primary" onclick="saveStudiesConfig();rebuildTVChart();closeStudiesModal()">💾 Aplicar y recargar</button>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
+    <div style="display:flex;gap:8px;ju
