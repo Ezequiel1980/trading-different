@@ -981,10 +981,8 @@ canvas.chart-canvas {
 .dot-white  { background:#fff; }
 .dot-yellow { background:var(--gold); }
 
-/* Edit modal overlay (pool editor, journal, calc) */
-.modal-overlay      { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:100000; display:none; align-items:center; justify-content:center; backdrop-filter:blur(6px); }
-.modal-overlay.open { display:flex; }
-.calc-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:100000; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+/* Calc modal */
+.calc-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:500; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
 .calc-modal-overlay.open { display:flex; }
 
 /* ── Ocultar modal de indicadores solo en tab Gráfico ── */
@@ -1586,14 +1584,13 @@ body:has(#bottom-panel.open) .app-layout {
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;position:relative">
           <span style="font-size:10px;color:var(--muted)">TF:</span>
           <div id="sidebar-tf-btns" style="display:flex;gap:4px;flex-wrap:wrap"></div>
-          <span onclick="toggleTFConfig()" title="Configurar TFs visibles" style="font-size:12px;cursor:pointer;color:var(--muted);padding:2px 5px;border-radius:4px;border:1px solid transparent;transition:border-color .2s" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'">⚙</span>
-          <!-- TF config popover -->
+          <span onclick="toggleTFConfig()" title="Configurar TFs visibles" style="font-size:13px;cursor:pointer;color:var(--muted);padding:1px 5px;border-radius:4px;border:1px solid transparent" onmouseenter="this.style.borderColor='var(--border)'" onmouseleave="this.style.borderColor='transparent'">&#9881;</span>
           <div id="tf-config-popover" style="display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--surface-1);border:1px solid var(--border);border-radius:8px;padding:10px;z-index:99999;min-width:200px;box-shadow:0 4px 20px rgba(0,0,0,0.5)">
             <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">TFs visibles en sidebar</div>
             <div id="tf-config-checks" style="display:flex;flex-wrap:wrap;gap:6px"></div>
             <div style="margin-top:10px;display:flex;gap:6px">
               <button onclick="applyTFConfig()" style="flex:1;padding:4px;font-size:11px;border-radius:5px;border:1px solid var(--purple);background:rgba(188,140,255,0.15);color:var(--purple);cursor:pointer">Aplicar</button>
-              <button onclick="document.getElementById('tf-config-popover').style.display='none'" style="padding:4px 8px;font-size:11px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);cursor:pointer">✕</button>
+              <button onclick="document.getElementById('tf-config-popover').style.display='none'" style="padding:4px 8px;font-size:11px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);cursor:pointer">&#10005;</button>
             </div>
           </div>
         </div>
@@ -2353,19 +2350,22 @@ function getModePools(mode) {
   return (m && m[currentTF]) ? m[currentTF] : (m && m['4H']) ? m['4H'] : { long_pools: [], short_pools: [] };
 }
 // Helper: set active TF and refresh display
-// ─── Configurable sidebar TF selector ───────────────────
+// ── Configurable sidebar TF selector ─────────────────────
 const ALL_SIDEBAR_TFS = ['5m','15m','30m','1H','4H','8H','1D','1W'];
-let visibleSidebarTFs = JSON.parse(localStorage.getItem('td_visible_tfs') || '["15m","1H","4H","1D"]');
+let visibleSidebarTFs = (function() {
+  try { return JSON.parse(localStorage.getItem('td_visible_tfs') || '["15m","1H","4H","1D"]'); }
+  catch(e) { return ['15m','1H','4H','1D']; }
+})();
 
 function renderSidebarTFBtns() {
-  const container = document.getElementById('sidebar-tf-btns');
+  var container = document.getElementById('sidebar-tf-btns');
   if (!container) return;
   container.innerHTML = '';
-  visibleSidebarTFs.forEach(t => {
-    const el = document.createElement('span');
+  visibleSidebarTFs.forEach(function(t) {
+    var el = document.createElement('span');
     el.id = 'tf-btn-' + t;
     el.textContent = t;
-    el.onclick = () => setCurrentTF(t);
+    el.onclick = (function(tf){ return function(){ setCurrentTF(tf); }; })(t);
     el.style.cssText = t === currentTF
       ? 'padding:3px 10px;font-size:11px;border-radius:5px;border:1px solid var(--purple);background:rgba(188,140,255,0.15);color:var(--purple);cursor:pointer;font-weight:700'
       : 'padding:3px 10px;font-size:11px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);cursor:pointer';
@@ -2374,21 +2374,26 @@ function renderSidebarTFBtns() {
 }
 
 function toggleTFConfig() {
-  const pop = document.getElementById('tf-config-popover');
+  var pop = document.getElementById('tf-config-popover');
   if (!pop) return;
   if (pop.style.display === 'none') {
-    // build checkboxes
-    const checks = document.getElementById('tf-config-checks');
+    var checks = document.getElementById('tf-config-checks');
     checks.innerHTML = '';
-    ALL_SIDEBAR_TFS.forEach(t => {
-      const checked = visibleSidebarTFs.includes(t);
-      const lbl = document.createElement('label');
+    ALL_SIDEBAR_TFS.forEach(function(t) {
+      var checked = visibleSidebarTFs.indexOf(t) >= 0;
+      var lbl = document.createElement('label');
       lbl.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text);cursor:pointer;padding:4px 8px;border-radius:5px;border:1px solid ' + (checked ? 'var(--purple)' : 'var(--border)') + ';background:' + (checked ? 'rgba(188,140,255,0.12)' : 'var(--bg3)');
-      lbl.innerHTML = `<input type="checkbox" data-tf="${t}" ${checked?'checked':''} style="accent-color:var(--purple);cursor:pointer"> ${t}`;
-      lbl.querySelector('input').onchange = (e) => {
-        lbl.style.borderColor = e.target.checked ? 'var(--purple)' : 'var(--border)';
-        lbl.style.background  = e.target.checked ? 'rgba(188,140,255,0.12)' : 'var(--bg3)';
-      };
+      var inp = document.createElement('input');
+      inp.type = 'checkbox';
+      inp.dataset.tf = t;
+      inp.checked = checked;
+      inp.style.cssText = 'accent-color:var(--purple);cursor:pointer';
+      inp.onchange = (function(l){ return function(e) {
+        l.style.borderColor = e.target.checked ? 'var(--purple)' : 'var(--border)';
+        l.style.background  = e.target.checked ? 'rgba(188,140,255,0.12)' : 'var(--bg3)';
+      }; })(lbl);
+      lbl.appendChild(inp);
+      lbl.appendChild(document.createTextNode(' ' + t));
       checks.appendChild(lbl);
     });
     pop.style.display = 'block';
@@ -2398,16 +2403,13 @@ function toggleTFConfig() {
 }
 
 function applyTFConfig() {
-  const checks = document.querySelectorAll('#tf-config-checks input[type=checkbox]');
-  const selected = [];
-  checks.forEach(cb => { if (cb.checked) selected.push(cb.dataset.tf); });
+  var checks = document.querySelectorAll('#tf-config-checks input[type=checkbox]');
+  var selected = [];
+  checks.forEach(function(cb) { if (cb.checked) selected.push(cb.dataset.tf); });
   if (selected.length === 0) { alert('Selecciona al menos un TF'); return; }
-  visibleSidebarTFs = ALL_SIDEBAR_TFS.filter(t => selected.includes(t)); // preserve order
-  localStorage.setItem('td_visible_tfs', JSON.stringify(visibleSidebarTFs));
-  // if currentTF no longer visible, switch to first visible
-  if (!visibleSidebarTFs.includes(currentTF)) {
-    currentTF = visibleSidebarTFs[0];
-  }
+  visibleSidebarTFs = ALL_SIDEBAR_TFS.filter(function(t) { return selected.indexOf(t) >= 0; });
+  try { localStorage.setItem('td_visible_tfs', JSON.stringify(visibleSidebarTFs)); } catch(e) {}
+  if (visibleSidebarTFs.indexOf(currentTF) < 0) { currentTF = visibleSidebarTFs[0]; }
   renderSidebarTFBtns();
   document.getElementById('tf-config-popover').style.display = 'none';
   updatePoolMap(); updateSignals(); buildLevelsTable();
@@ -5305,4 +5307,128 @@ function calcKellyFromJournal() {
   const closed=(tradeJournal||[]).filter(t=>t.result==='WIN'||t.result==='LOSS');
   const info=document.getElementById('kelly-journal-info');
   if(!closed.length){
-    if(info) info.innerHTML='<span style="color:var(--muted)">Sin trades en el diario — 
+    if(info) info.innerHTML='<span style="color:var(--muted)">Sin trades en el diario — usando parámetros manuales</span>';
+    calcKelly(); return;
+  }
+  const wins=closed.filter(t=>t.result==='WIN');
+  const wr=wins.length/closed.length*100;
+  const avgRR=closed.reduce((s,t)=>s+Math.abs(t.rr||2),0)/closed.length;
+  const wrInput=document.getElementById('kelly-wr');
+  const rrInput=document.getElementById('kelly-rr');
+  if(wrInput) wrInput.value=wr.toFixed(1);
+  if(rrInput) rrInput.value=avgRR.toFixed(2);
+  if(info) info.innerHTML=`📓 ${closed.length} trades · ${wins.length}W/${closed.length-wins.length}L · WR ${wr.toFixed(1)}% · R:R avg ${avgRR.toFixed(2)}`;
+  calcKelly();
+}
+
+// ════════════════════════════════════════════════════════
+// BACKTESTING MULTI-TF
+// ════════════════════════════════════════════════════════
+async function runBacktestAllTF() {
+  const days=parseInt(document.getElementById('bt-days').value)||30;
+  const btn=document.getElementById('run-all-btn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Analizando...';}
+  const container=document.getElementById('bt-table-container');
+  container.innerHTML='<div class="bt-empty">Analizando todos los timeframes...</div>';
+  document.getElementById('bt-stats').style.display='none';
+
+  const tfConfigs=[
+    {tf:'15m',interval:'15m',limit:Math.min(days*96,1000)},
+    {tf:'1H', interval:'1h', limit:Math.min(days*24,1000)},
+    {tf:'4H', interval:'4h', limit:Math.min(days*6,1000)},
+    {tf:'1D', interval:'1d', limit:Math.min(days,365)},
+  ];
+
+  const rows=[];
+  for(const cfg of tfConfigs){
+    try{
+      const resp=await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval='+cfg.interval+'&limit='+cfg.limit);
+      const klines=await resp.json();
+      if(!Array.isArray(klines)||!klines.length) continue;
+      // Use pools for this TF
+      const savedTF=currentTF;
+      currentTF=cfg.tf;
+      const trades=simulateBacktest(klines);
+      currentTF=savedTF;
+      if(!trades.length){rows.push({tf:cfg.tf,trades:0,wr:0,pnl:0,rr:0,gf:0,kelly:0});continue;}
+      const wins=trades.filter(t=>t.result==='WIN');
+      const wr=wins.length/trades.length*100;
+      const pnl=trades.reduce((s,t)=>s+t.pnl,0);
+      const rr=trades.reduce((s,t)=>s+t.rr,0)/trades.length;
+      const winPnl=wins.reduce((s,t)=>s+Math.abs(t.pnl),0);
+      const lossPnl=trades.filter(t=>t.result!=='WIN').reduce((s,t)=>s+Math.abs(t.pnl),0);
+      const gf=lossPnl>0?winPnl/lossPnl:winPnl>0?99:0;
+      const kellyF=(wr/100)-(1-wr/100)/rr;
+      rows.push({tf:cfg.tf,trades:trades.length,wr,pnl,rr,gf,kelly:Math.max(kellyF/2,0)*100});
+    }catch(e){rows.push({tf:cfg.tf,trades:0,wr:0,pnl:0,rr:0,gf:0,kelly:0,err:e.message});}
+  }
+
+  const bestTF=rows.reduce((b,r)=>(!b||(r.gf>b.gf&&r.trades>=3))?r:b,null);
+  const tableRows=rows.map(r=>{
+    const isBest=bestTF&&r.tf===bestTF.tf&&r.trades>=3;
+    return `<tr style="border-bottom:1px solid var(--border);${isBest?'background:rgba(168,255,62,0.05)':''}">
+      <td style="padding:6px 10px;font-weight:700;color:${isBest?'var(--green)':'var(--text)'}">${r.tf}${isBest?' ★':''}</td>
+      <td style="padding:6px 10px">${r.trades}</td>
+      <td style="padding:6px 10px;color:${r.wr>=50?'var(--green)':'var(--red)'};font-weight:700">${r.wr.toFixed(1)}%</td>
+      <td style="padding:6px 10px;color:${r.pnl>=0?'var(--green)':'var(--red)'}">${r.pnl>=0?'+':''}${r.pnl.toFixed(2)}%</td>
+      <td style="padding:6px 10px">${r.rr.toFixed(2)}</td>
+      <td style="padding:6px 10px;color:${r.gf>=1.5?'var(--green)':r.gf>=1?'var(--yellow)':'var(--red)'};font-weight:700">${r.gf.toFixed(2)}</td>
+      <td style="padding:6px 10px;color:${r.kelly>0?'var(--green)':'var(--red)'}">${r.kelly>0?r.kelly.toFixed(1)+'%':'Sin edge'}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML=`
+    <div style="padding:10px 0 6px;font-size:11px;color:var(--muted)">Comparativa de performance por timeframe · últimos ${days} días · pools configurados</div>
+    <table class="bt-table"><thead><tr>
+      <th>TF</th><th>Trades</th><th>Win Rate</th><th>P&L Total</th><th>R:R Prom</th><th>Factor Gan.</th><th>½ Kelly</th>
+    </tr></thead><tbody>${tableRows}</tbody></table>
+    ${bestTF&&bestTF.trades>=3?`<div style="margin-top:8px;padding:8px 12px;background:rgba(168,255,62,0.07);border-radius:6px;font-size:11px;color:var(--green)">★ Mejor TF histórico: <strong>${bestTF.tf}</strong> con factor de ganancia ${bestTF.gf.toFixed(2)} y win rate ${bestTF.wr.toFixed(1)}%</div>`:''}`;
+
+  if(btn){btn.disabled=false;btn.textContent='🔄 Todos TF';}
+}
+
+</script>
+<!-- STUDIES MODAL -->
+<div class="modal-overlay" id="studies-modal" onclick="if(event.target===this)closeStudiesModal()">
+  <div class="modal" style="max-width:600px;width:96vw;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0">📊 Indicadores del Gráfico</h3>
+      <button onclick="closeStudiesModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Seleccioná los indicadores. Los cambios se guardan automáticamente y el gráfico se reconstruye.</p>
+
+    <!-- Built-in studies grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px" id="studies-grid"></div>
+
+    <!-- Separador -->
+    <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">SÍMBOLO DE COMPARACIÓN</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+          <input type="checkbox" id="tv-compare-binance" onchange="saveStudiesConfig()"> Binance BTCUSDT
+        </label>
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+          <input type="checkbox" id="tv-compare-bybit" onchange="saveStudiesConfig()"> Bybit BTCUSDT
+        </label>
+      </div>
+    </div>
+
+    <!-- Pine Script info -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--purple);margin-bottom:6px">📐 Pine Script personalizado</div>
+      <p style="font-size:11px;color:var(--muted);margin:0 0 8px">El widget público de TradingView no permite cargar Pine Scripts propios directamente. Para usar tus scripts:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="window.open('https://www.tradingview.com/chart/?symbol=COINBASE:BTCUSD&interval=15','_blank')" style="padding:6px 14px;border-radius:6px;border:1px solid var(--purple);background:rgba(188,140,255,0.1);color:var(--purple);font-size:11px;cursor:pointer">🌐 Abrir en TradingView</button>
+        <button onclick="exportPineScript();closeStudiesModal()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:rgba(168,255,62,0.1);color:var(--green);font-size:11px;cursor:pointer">📋 Copiar script de pools</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeStudiesModal()">Cerrar</button>
+      <button class="btn btn-primary" onclick="saveStudiesConfig();rebuildTVChart();closeStudiesModal()">💾 Aplicar y recargar</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
