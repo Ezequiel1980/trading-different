@@ -4046,18 +4046,36 @@ function setPoolFormMode(m) {
   renderPoolForm();
 }
 
+// Preset pool names per TF and side
+function getPoolPresets(side, tf) {
+  const sLabel = side === 'long' ? 'Largo' : 'CORTO';
+  const highTF  = ['4H','8H','1D','1W'].includes(tf);
+  const sizes   = highTF ? ['3x','5x','10x','25x'] : ['10x','25x','50x','100x'];
+  return sizes.map(s => 'Pool ' + sLabel + ' ' + tf + ' ' + s);
+}
+
 function poolRowHTML(pool, side, idx) {
   const intColors = {red:'#f85149',orange:'#e3b341',yellow:'#ffd000',green:'#3fb950'};
+  const presets = getPoolPresets(side, poolEditorTF);
+  const presetOpts = ['<option value="">— nombre rápido —</option>',
+    ...presets.map(n => `<option value="${n}">${n}</option>`)
+  ].join('');
   return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px" id="pool-row-${side}-${idx}">
     <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-      <input type="text" value="${pool.label}" placeholder="Nombre del pool"
-        style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:11px"
-        oninput="updatePool('${side}',${idx},'label',this.value)">
-      <select style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:${intColors[pool.intensity]||'var(--text)'};padding:5px 6px;font-size:11px"
-        onchange="updatePool('${side}',${idx},'intensity',this.value);this.style.color='${intColors[this.value]||'var(--text)'}'" >
+      <div style="flex:1;display:flex;flex-direction:column;gap:3px">
+        <select style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:4px 6px;font-size:10px"
+          onchange="if(this.value){updatePool('${side}',${idx},'label',this.value);document.getElementById('lbl-${side}-${idx}').value=this.value;this.value='';}">
+          ${presetOpts}
+        </select>
+        <input type="text" id="lbl-${side}-${idx}" value="${pool.label}" placeholder="Nombre del pool"
+          style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-size:11px"
+          oninput="updatePool('${side}',${idx},'label',this.value)">
+      </div>
+      <select style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:${intColors[pool.intensity]||'var(--text)'};padding:5px 6px;font-size:11px;align-self:flex-end"
+        onchange="updatePool('${side}',${idx},'intensity',this.value);this.style.color=({red:'#f85149',orange:'#e3b341',yellow:'#ffd000',green:'#3fb950'})[this.value]||'var(--text)'" >
         ${['red','orange','yellow','green'].map(v=>`<option value="${v}" ${pool.intensity===v?'selected':''} style="color:${intColors[v]}">${v.charAt(0).toUpperCase()+v.slice(1)}</option>`).join('')}
       </select>
-      <button onclick="removePoolRow('${side}',${idx})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 3px">×</button>
+      <button onclick="removePoolRow('${side}',${idx})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 3px;align-self:flex-end">×</button>
     </div>
     <div style="display:flex;gap:6px">
       <div style="flex:1"><div style="font-size:9px;color:var(--muted);margin-bottom:2px">LOW</div>
