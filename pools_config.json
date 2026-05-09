@@ -4,126 +4,94 @@
       "1H": {
         "long_pools": [
           {
-            "low": 81640,
-            "high": 85300,
-            "intensity": "green",
-            "label": "Pool LARGO Bajo"
+            "low": 74500,
+            "high": 76000,
+            "intensity": "red",
+            "label": "Pool LARGO 1H Principal"
+          },
+          {
+            "low": 73000,
+            "high": 73800,
+            "intensity": "yellow",
+            "label": "Pool LARGO 1H Secundario"
           }
         ],
         "short_pools": [
           {
-            "low": 77037,
-            "high": 77693,
+            "low": 77250,
+            "high": 78350,
+            "intensity": "orange",
+            "label": "Pool CORTO 1H Inmediato"
+          },
+          {
+            "low": 80000,
+            "high": 81360,
             "intensity": "yellow",
-            "label": "Pool CORTO Inmediato"
-          },
-          {
-            "low": 74427,
-            "high": 74800,
-            "intensity": "orange",
-            "label": "Pool CORTO "
-          },
-          {
-            "low": 72807,
-            "high": 73270,
-            "intensity": "orange",
-            "label": "Pool CORTO "
-          },
-          {
-            "low": 69690,
-            "high": 70438,
-            "intensity": "green",
-            "label": "Pool CORTO "
-          },
-          {
-            "low": 64395,
-            "high": 64913,
-            "intensity": "red",
-            "label": "Pool CORTO "
+            "label": "Pool CORTO 1H $80K"
           }
         ]
       },
       "4H": {
-        "long_pools": [
-          {
-            "low": 71568,
-            "high": 74828,
-            "intensity": "green",
-            "label": "POOLS X25"
-          },
-          {
-            "low": 68586,
-            "high": 70112,
-            "intensity": "green",
-            "label": "POOLS X25"
-          },
-          {
-            "low": 63939,
-            "high": 64633,
-            "intensity": "orange",
-            "label": "POOLS X25"
-          }
-        ],
-        "short_pools": [
-          {
-            "low": 85716.93,
-            "high": 92929.78,
-            "intensity": "orange",
-            "label": " POOLS 3x"
-          },
-          {
-            "low": 90849.15,
-            "high": 93137.84,
-            "intensity": "green",
-            "label": " POOLS 25x"
-          },
-          {
-            "low": 98062,
-            "high": 100766,
-            "intensity": "green",
-            "label": "POOLS 25x"
-          }
-        ]
+        "long_pools": [],
+        "short_pools": []
       },
       "1D": {
         "long_pools": [
           {
-            "low": 81640,
-            "high": 85300,
-            "intensity": "green",
-            "label": "Pool LARGO Bajo"
+            "low": 74500,
+            "high": 76000,
+            "intensity": "red",
+            "label": "Pool LARGO Diario"
+          },
+          {
+            "low": 70000,
+            "high": 71000,
+            "intensity": "yellow",
+            "label": "Pool LARGO Diario Bajo"
           }
         ],
         "short_pools": [
           {
-            "low": 77037,
-            "high": 77693,
+            "low": 77250,
+            "high": 78350,
+            "intensity": "orange",
+            "label": "Pool CORTO Diario"
+          },
+          {
+            "low": 83000,
+            "high": 85000,
             "intensity": "yellow",
-            "label": "Pool CORTO Inmediato"
-          },
+            "label": "Pool CORTO Diario $83K"
+          }
+        ]
+      },
+      "15m": {
+        "long_pools": [
           {
-            "low": 74427,
-            "high": 74800,
-            "intensity": "orange",
-            "label": "Pool CORTO "
-          },
-          {
-            "low": 72807,
-            "high": 73270,
-            "intensity": "orange",
-            "label": "Pool CORTO "
-          },
-          {
-            "low": 69690,
-            "high": 70438,
-            "intensity": "green",
-            "label": "Pool CORTO "
-          },
-          {
-            "low": 64395,
-            "high": 64913,
+            "low": 74500,
+            "high": 76000,
             "intensity": "red",
-            "label": "Pool CORTO "
+            "label": "Pool LARGO Principal 15m"
+          },
+          {
+            "low": 73000,
+            "high": 73800,
+            "intensity": "yellow",
+            "label": "Pool LARGO Secundario 15m"
+          }
+        ],
+        "short_pools": [
+          {
+            "low": 77250,
+            "high": 78350,
+            "intensity": "orange",
+            "label": "Pool CORTO Inmediato 15m"
+          },
+          {
+            "low": 80000,
+            "high": 81360,
+            "intensity": "yellow",
+            "label": "Pool CORTO $80K 15m"
           }
         ]
       }
@@ -135,25 +103,13 @@
             "low": 74500,
             "high": 76000,
             "intensity": "red",
-            "label": "Pool LARGO Macro"
+            "label": "Pool LARGO 1H"
           },
           {
-            "low": 70000,
+            "low": 72000,
             "high": 73000,
             "intensity": "yellow",
-            "label": "Pool LARGO $70K-$73K"
-          },
-          {
-            "low": 59050,
-            "high": 62935,
-            "intensity": "green",
-            "label": "Pool LARGO Profundo"
-          },
-          {
-            "low": 55627,
-            "high": 58000,
-            "intensity": "green",
-            "label": "Costo Minería — Floor Abs."
+            "label": "Pool LARGO 1H Soporte"
           }
         ],
         "short_pools": [
@@ -161,37 +117,13 @@
             "low": 77250,
             "high": 78350,
             "intensity": "orange",
-            "label": "Pool CORTO Inmediato"
+            "label": "Pool CORTO 1H"
           },
           {
             "low": 80000,
             "high": 81360,
             "intensity": "yellow",
-            "label": "Pool CORTO $80K"
-          },
-          {
-            "low": 88000,
-            "high": 95000,
-            "intensity": "yellow",
-            "label": "Pool CORTO $88K-$95K"
-          },
-          {
-            "low": 100000,
-            "high": 110000,
-            "intensity": "orange",
-            "label": "Pool CORTO $100K-$110K"
-          },
-          {
-            "low": 110000,
-            "high": 120000,
-            "intensity": "red",
-            "label": "Pool CORTO $110K-$120K"
-          },
-          {
-            "low": 120000,
-            "high": 130000,
-            "intensity": "red",
-            "label": "Pool CORTO MÁXIMO"
+            "label": "Pool CORTO 1H $80K"
           }
         ]
       },
@@ -267,19 +199,13 @@
             "low": 74500,
             "high": 76000,
             "intensity": "red",
-            "label": "Pool LARGO Macro"
-          },
-          {
-            "low": 70000,
-            "high": 73000,
-            "intensity": "yellow",
-            "label": "Pool LARGO $70K-$73K"
+            "label": "Pool LARGO Diario Macro"
           },
           {
             "low": 59050,
             "high": 62935,
-            "intensity": "green",
-            "label": "Pool LARGO Profundo"
+            "intensity": "yellow",
+            "label": "Pool LARGO Diario Profundo"
           },
           {
             "low": 55627,
@@ -290,40 +216,52 @@
         ],
         "short_pools": [
           {
-            "low": 77250,
-            "high": 78350,
-            "intensity": "orange",
-            "label": "Pool CORTO Inmediato"
-          },
-          {
             "low": 80000,
             "high": 81360,
-            "intensity": "yellow",
-            "label": "Pool CORTO $80K"
+            "intensity": "orange",
+            "label": "Pool CORTO Diario $80K"
           },
           {
             "low": 88000,
             "high": 95000,
             "intensity": "yellow",
-            "label": "Pool CORTO $88K-$95K"
+            "label": "Pool CORTO Diario $88K-$95K"
           },
           {
             "low": 100000,
             "high": 110000,
+            "intensity": "red",
+            "label": "Pool CORTO Diario $100K+"
+          }
+        ]
+      },
+      "15m": {
+        "long_pools": [
+          {
+            "low": 74500,
+            "high": 76000,
+            "intensity": "red",
+            "label": "Pool LARGO 15m"
+          },
+          {
+            "low": 72000,
+            "high": 73000,
+            "intensity": "yellow",
+            "label": "Pool LARGO Soporte 15m"
+          }
+        ],
+        "short_pools": [
+          {
+            "low": 77250,
+            "high": 78350,
             "intensity": "orange",
-            "label": "Pool CORTO $100K-$110K"
+            "label": "Pool CORTO 15m"
           },
           {
-            "low": 110000,
-            "high": 120000,
-            "intensity": "red",
-            "label": "Pool CORTO $110K-$120K"
-          },
-          {
-            "low": 120000,
-            "high": 130000,
-            "intensity": "red",
-            "label": "Pool CORTO MÁXIMO"
+            "low": 80000,
+            "high": 81360,
+            "intensity": "yellow",
+            "label": "Pool CORTO $80K 15m"
           }
         ]
       }
@@ -331,5 +269,5 @@
   },
   "mode": "scalping",
   "trendiff": "bearish",
-  "exported_at": "2026-05-07T16:09:06.636Z"
+  "exported_at": "2026-05-08T23:15:38.266Z"
 }
