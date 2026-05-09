@@ -2950,7 +2950,7 @@ function getConfluenceZones() {
 
   function clusterSide(pools) {
     if (!pools.length) return [];
-    // Deduplicate: same low+high+side only counted once per TF
+    // Deduplicate: same low+high+TF only once
     var seen = {}, deduped = [];
     pools.forEach(function(p) {
       var key = p._tf + '|' + p.low + '|' + p.high;
@@ -2963,21 +2963,38 @@ function getConfluenceZones() {
       var merged = false;
       for (var i = 0; i < clusters.length; i++) {
         var c = clusters[i];
-        // Overlap check (allow ~0.5% gap tolerance for near-adjacent pools)
-        var tolerance = (pool.high - pool.low) * 0.1;
-        if (pool.low <= c.maxHigh + tolerance && pool.high >= c.minLow - tolerance) {
-          c.pools.push(pool);
-          c.minLow  = Math.min(c.minLow,  pool.low);
-          c.maxHigh = Math.max(c.maxHigh, pool.high);
-          if (pool._tf !== 'flat') c.tfs.add(pool._tf);
-          merged = true;
-          break;
+        // INTERSECTION-based clustering:
+        // A pool joins a cluster only if it overlaps with the current
+        // INTERSECTION zone (not the full extent). This prevents large
+        // pools from falsely linking distant zones.
+        // Tolerance: max 0.5% of price or $300, whichever is smaller.
+        var maxGap = Math.min((currentPrice || 80000) * 0.005, 300);
+        var overlapOk = pool.low <= c.intHigh + maxGap &&
+                        pool.high >= c.intLow  - maxGap;
+        if (overlapOk) {
+          // Update intersection (tighten, don't expand)
+          var newIntLow  = Math.max(c.intLow,  pool.low);
+          var newIntHigh = Math.min(c.intHigh, pool.high);
+          // Only accept if intersection still has meaningful width (>$50)
+          if (newIntHigh >= newIntLow - maxGap) {
+            c.intLow  = newIntLow;
+            c.intHigh = newIntHigh;
+            c.pools.push(pool);
+            if (pool._tf !== 'flat') c.tfs.add(pool._tf);
+            merged = true;
+            break;
+          }
         }
       }
       if (!merged) {
         var tfsSet = new Set();
         if (pool._tf !== 'flat') tfsSet.add(pool._tf);
-        clusters.push({ pools:[pool], minLow:pool.low, maxHigh:pool.high, tfs:tfsSet });
+        clusters.push({
+          pools:   [pool],
+          intLow:  pool.low,   // intersection zone (starts as full pool range)
+          intHigh: pool.high,
+          tfs:     tfsSet
+        });
       }
     });
     return clusters;
@@ -3011,8 +3028,8 @@ function getConfluenceZones() {
 
       results.push({
         side: side,
-        low:       c.minLow,
-        high:      c.maxHigh,
+        low:       c.intLow,    // intersection zone (where all TFs agree)
+        high:      c.intHigh,
         score:     effectiveScore,
         rawScore:  score,
         tfs:       tfsSorted,
