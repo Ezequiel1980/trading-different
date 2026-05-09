@@ -2194,7 +2194,7 @@ body:has(#bottom-panel.open) .app-layout {
 <div class="toast-container" id="toasts"></div>
 
 <!-- ═══════════ EDIT MODAL ═══════════ -->
-<div class="modal-overlay" id="edit-modal" onclick="if(event.target===this)closeModal()">
+<div class="modal-overlay" id="edit-modal" onmousedown="_modalDragStart=event.target" onclick="if(event.target===this&&_modalDragStart===this)closeModal()">
   <div class="modal" style="max-width:720px;width:96vw;max-height:90vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
       <h3 style="margin:0">✏️ Editor de Pools</h3>
@@ -4010,7 +4010,8 @@ function openModal() {
   document.getElementById('pool-editor-toggle').textContent = 'Ver JSON';
   document.getElementById('edit-modal').classList.add('open');
 }
-function closeModal() { document.getElementById('edit-modal').classList.remove('open'); }
+let _modalDragStart=null;
+function closeModal() { document.getElementById('edit-modal').classList.remove('open'); _modalDragStart=null; }
 
 function togglePoolEditorMode() {
   poolEditorJsonMode = !poolEditorJsonMode;
@@ -4069,25 +4070,31 @@ function poolRowHTML(pool, side, idx) {
   </div>`;
 }
 
+function ensurePoolTF(mode, tf) {
+  if (!POOLS[mode]) POOLS[mode] = {};
+  if (!POOLS[mode][tf]) POOLS[mode][tf] = { long_pools: [], short_pools: [] };
+  return POOLS[mode][tf];
+}
+
 function renderPoolForm() {
   const lEl = document.getElementById('pool-form-long');
   const sEl = document.getElementById('pool-form-short');
   if (!lEl || !sEl) return;
-  const pools = POOLS[poolFormMode][poolEditorTF] || POOLS[poolFormMode]['4H'] || { long_pools:[], short_pools:[] };
+  const pools = ensurePoolTF(poolFormMode, poolEditorTF);
   lEl.innerHTML = (pools.long_pools  || []).map((p,i)=>poolRowHTML(p,'long',i)).join('');
   sEl.innerHTML = (pools.short_pools || []).map((p,i)=>poolRowHTML(p,'short',i)).join('');
 }
 
 function updatePool(side, idx, field, value) {
   const key = side + '_pools';
-  const ep = POOLS[poolFormMode][poolEditorTF] || POOLS[poolFormMode]['4H'];
+  const ep = ensurePoolTF(poolFormMode, poolEditorTF);
   if (ep[key] && ep[key][idx]) ep[key][idx][field] = value;
   autoSavePools();
 }
 
 function addPoolRow(side) {
   const key = side + '_pools';
-  const ep2 = POOLS[poolFormMode][poolEditorTF] || POOLS[poolFormMode]['4H'];
+  const ep2 = ensurePoolTF(poolFormMode, poolEditorTF);
   const newPool = { low: 0, high: 0, intensity: 'yellow', label: 'Nuevo pool' };
   if (!ep2[key]) ep2[key] = [];
   ep2[key].push(newPool);
@@ -4097,7 +4104,7 @@ function addPoolRow(side) {
 
 function removePoolRow(side, idx) {
   const key = side + '_pools';
-  const ep3 = POOLS[poolFormMode][poolEditorTF] || POOLS[poolFormMode]['4H'];
+  const ep3 = ensurePoolTF(poolFormMode, poolEditorTF);
   if (ep3[key]) ep3[key].splice(idx, 1);
   renderPoolForm();
   autoSavePools();
@@ -4531,7 +4538,7 @@ async function exportPoolsConfig() {
     trendiff: trendiff,
     exported_at: new Date().toISOString()
   };
-  // Intentar enviar directamente al bot si está corriendo
+  // Solo intentar sincronizar con bot local — sin descarga de archivo
   try {
     const resp = await fetch('http://localhost:7432/sync', {
       method: 'POST',
@@ -4539,24 +4546,14 @@ async function exportPoolsConfig() {
       body: JSON.stringify(config)
     });
     if (resp.ok) {
-      const result = await resp.json();
-      showToast('long', '🔗 Bot sincronizado', 'Pools actualizados en el bot automáticamente.');
-      document.getElementById('bot-sync-status').textContent = '🟢 Bot conectado · ' + new Date().toLocaleTimeString('es-AR');
-      document.getElementById('bot-sync-status').style.color = 'var(--green)';
-      return;
+      const lbl = document.getElementById('bot-sync-status');
+      if (lbl) { lbl.textContent = '🟢 Bot conectado · ' + new Date().toLocaleTimeString('es-AR'); lbl.style.color = 'var(--green)'; }
     }
   } catch(e) {
-    // Bot no está corriendo — fallback a descarga
+    // Bot offline — pools ya están en localStorage, no hacer nada
+    const lbl = document.getElementById('bot-sync-status');
+    if (lbl) { lbl.textContent = '🔴 Bot offline'; lbl.style.color = 'var(--muted)'; }
   }
-  // Fallback: descarga el archivo
-  const blob = new Blob([JSON.stringify(config, null, 2)], {type: 'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = 'pools_config.json'; a.click();
-  URL.revokeObjectURL(url);
-  showToast('short', '⚠️ Bot no detectado', 'Se descargó pools_config.json — ponelo en la carpeta del bot.');
-  document.getElementById('bot-sync-status').textContent = '🔴 Bot offline';
-  document.getElementById('bot-sync-status').style.color = 'var(--red)';
 }
 
 // ════════════════════════════════════════════════════════
