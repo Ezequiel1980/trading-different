@@ -3007,6 +3007,12 @@ function getConfluenceZones() {
 
   function processClusters(clusters, side) {
     clusters.forEach(function(c) {
+      // Skip zones wider than 5% of current price (too wide = not a real confluence)
+      var maxWidth = (currentPrice || 80000) * 0.05;
+      if (c.intHigh - c.intLow > maxWidth) return;
+      // Skip zones with invalid intersection (intLow > intHigh)
+      if (c.intLow > c.intHigh) return;
+
       var score = c.tfs.size;
       // Count flat pools as bonus (they usually represent manually set key levels)
       var flatCount = c.pools.filter(function(p){ return p._tf === 'flat'; }).length;
@@ -3090,10 +3096,11 @@ function buildConfluenceMap() {
     return '◆ '+s+'TF';
   }
 
-  // Separate by side, show shorts (above price) then longs (below price)
-  var abovePrice = zones.filter(function(z){ return (z.low + z.high)/2 >= currentPrice; })
+  // Group by side (not by price position) — avoids misclassification
+  // Shorts shown first (above price / resistencias), then longs (below / soportes)
+  var abovePrice = zones.filter(function(z){ return z.side === 'short'; })
                         .sort(function(a,b){ return a.low - b.low; }); // nearest first
-  var belowPrice = zones.filter(function(z){ return (z.low + z.high)/2 <  currentPrice; })
+  var belowPrice = zones.filter(function(z){ return z.side === 'long';  })
                         .sort(function(a,b){ return b.low - a.low; }); // nearest first
 
   function renderGroup(groupZones, groupLabel, arrow) {
@@ -3106,8 +3113,10 @@ function buildConfluenceMap() {
     groupZones.forEach(function(z) {
       var center  = (z.low + z.high) / 2;
       var distPct = ((center - currentPrice) / currentPrice * 100).toFixed(2);
-      var distStr = (parseFloat(distPct) > 0 ? '+' : '') + distPct + '%';
-      var distCol = parseFloat(distPct) > 0 ? 'var(--red)' : 'var(--green)';
+      var distNum = parseFloat(distPct);
+      var distStr = (distNum > 0 ? '+' : '') + distPct + '%';
+      // Long pools below price → green. Short pools above price → red.
+      var distCol = z.side === 'short' ? 'var(--red)' : 'var(--green)';
 
       var el = document.createElement('div');
       el.className = 'conf-zone ' + z.intensity;
