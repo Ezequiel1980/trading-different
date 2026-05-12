@@ -1456,6 +1456,9 @@ body:has(#bottom-panel.open) .app-layout {
           <button class="chart-tf-btn" data-tf="1D"  onclick="setChartTF('1D')">1D</button>
           <button class="chart-tf-btn" data-tf="1W"  onclick="setChartTF('1W')">1W</button>
           <div style="flex:1"></div>
+          <button class="chart-tf-btn active" id="chart-zones-btn" onclick="togglePoolZones()" title="Zonas de liquidez">🎯</button>
+          <button class="chart-tf-btn" id="chart-draw-btn" onclick="toggleDrawMode()" title="Dibujar línea horizontal">📐</button>
+          <button class="chart-tf-btn" onclick="clearUserLines()" title="Borrar líneas dibujadas">🗑</button>
           <span id="chart-symbol-label" style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">BTC/USDT · Binance</span>
         </div>
         <!-- Canvas chart -->
@@ -5171,6 +5174,7 @@ let _indCfg = JSON.parse(localStorage.getItem('td_ind_cfg') || 'null') || {
   ma20:false, ma50:false, ema21:false, bb:false, rsi:false, macd:false
 };
 
+let _bCandleData = []; // candle store for indicators + overlays
 let _bchart    = null;  // LW chart instance
 let _bCandles  = null;  // candlestick series
 let _bVolume   = null;  // volume histogram series
@@ -5277,6 +5281,15 @@ function initBinanceChart() {
       (v ? `  <span style="color:#6e7681">Vol:${(v.value/1e3).toFixed(1)}K</span>` : '');
   });
 
+  // Click to draw user lines
+  _bchart.subscribeClick(param=>{
+    if(!_drawMode||!param.point||!_bCandles)return;
+    const price=_bCandles.coordinateToPrice(param.point.y);
+    if(!price||price<=0)return;
+    _userLines.push({price:Math.round(price),color:'#58a6ff',label:''});
+    _saveUserLines();_renderUserLines();
+  });
+
   // ── ResizeObserver ──
   _bResizeOb = new ResizeObserver(() => {
     if (!_bchart || !wrap.clientWidth || !wrap.clientHeight) return;
@@ -5288,45 +5301,83 @@ function initBinanceChart() {
   _bLoadKlines(_bChartTF);
 }
 
-async function _bLoadKlines(tfLabel) {
-  _bChartTF = tfLabel;
-  const interval = CHART_TF_MAP[tfLabel] || '15m';
+// Data sources: CryptoCompare (1D/1W, desde 2010) + Binance paginado (intraday)
+const CHART_PAGES={'1m':1,'5m':2,'15m':3,'30m':3,'1H':3,'4H':3,'8H':2};
 
-  // Highlight active TF button
-  document.querySelectorAll('.chart-tf-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.tf === tfLabel)
-  );
-
-  if (!_bCandles) return;
-
-  try {
-    const url  = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=1000`;
-    const rows = await fetch(url).then(r => r.json());
-
-    const candles = rows.map(r => ({
-      time:  Math.floor(r[0] / 1000),
-      open:  parseFloat(r[1]),
-      high:  parseFloat(r[2]),
-      low:   parseFloat(r[3]),
-      close: parseFloat(r[4]),
-    }));
-    const vols = rows.map(r => ({
-      time:  Math.floor(r[0] / 1000),
-      value: parseFloat(r[5]),
-      color: parseFloat(r[4]) >= parseFloat(r[1])
-        ? 'rgba(63,185,80,0.35)' : 'rgba(248,81,73,0.35)',
-    }));
-
-    _bCandles.setData(candles);
-    _bVolume.setData(vols);
-    _bchart.timeScale().scrollToRealTime();
-
-    // Reconnect live WS
-    _bConnectWS(interval);
-
-  } catch(e) {
-    console.error('[BChart] fetch error:', e);
+async function _fetchBinancePaged(interval,pages){
+  let all=[],endTime=null;
+  for(let p=0;p<pages;p++){
+    let url=`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=1000`;
+    if(endTime)url+=`&endTime=${endTime}`;
+    const rows=await fetch(url).then(r=>r.json());
+    if(!Array.isArray(rows)||!rows.length)break;
+    all=[...rows,...all];endTime=rows[0][0]-1;
   }
+  const seen=new Set();
+  return all.filter(r=>{if(seen.has(r[0]))return false;seen.add(r[0]);return true;})
+    .sort((a,b)=>a[0]-b[0])
+    .map(r=>({time:Math.floor(r[0]/1000),open:parseFloat(r[1]),high:parseFloat(r[2]),low:parseFloat(r[3]),close:parseFloat(r[4]),volume:parseFloat(r[5])}));
+}
+
+async function _fetchCryptoCompare(endpoint,pages){
+  let all=[],toTs=null;
+  for(let p=0;p<pages;p++){
+    let url=`https://min-api.cryptocompare.com/data/v2/${endpoint}?fsym=BTC&tsym=USD&limit=2000`;
+    if(toTs)url+=`&toTs=${toTs}`;
+    const json=await fetch(url).then(r=>r.json());
+    const data=json?.Data?.Data;
+    if(!data||data.length<2)break;
+    const valid=data.filter(r=>r.open>0&&r.close>0&&r.time>0);
+    all=[...valid.slice(0,valid.length-1),...all];
+    toTs=data[0].time-1;
+    if(data.length<2001)break;
+  }
+  const seen=new Set();
+  return all.filter(r=>{if(seen.has(r.time))return false;seen.add(r.time);return true;})
+    .sort((a,b)=>a.time-b.time)
+    .map(r=>({time:r.time,open:r.open,high:r.high,low:r.low,close:r.close,volume:r.volumefrom||0}));
+}
+
+function _resampleToWeekly(daily){
+  const weeks={};
+  daily.forEach(c=>{
+    const d=new Date(c.time*1000),day=d.getUTCDay();
+    const mon=new Date(d);
+    mon.setUTCDate(d.getUTCDate()-(day===0?6:day-1));
+    mon.setUTCHours(0,0,0,0);
+    const key=Math.floor(mon.getTime()/1000);
+    if(!weeks[key])weeks[key]={time:key,open:c.open,high:c.high,low:c.low,close:c.close,volume:c.volume};
+    else{weeks[key].high=Math.max(weeks[key].high,c.high);weeks[key].low=Math.min(weeks[key].low,c.low);weeks[key].close=c.close;weeks[key].volume+=c.volume;}
+  });
+  return Object.values(weeks).sort((a,b)=>a.time-b.time);
+}
+
+async function _bLoadKlines(tfLabel){
+  _bChartTF=tfLabel;
+  document.querySelectorAll('.chart-tf-btn').forEach(b=>b.classList.toggle('active',b.dataset.tf===tfLabel));
+  if(!_bCandles)return;
+  try{
+    let candles;
+    if(tfLabel==='1D'){
+      candles=await _fetchCryptoCompare('histoday',3); // ~6000 dias desde 2010
+    }else if(tfLabel==='1W'){
+      const daily=await _fetchCryptoCompare('histoday',3);
+      candles=_resampleToWeekly(daily);
+    }else{
+      const interval=CHART_TF_MAP[tfLabel]||'15m';
+      const pages=CHART_PAGES[tfLabel]||1;
+      candles=await _fetchBinancePaged(interval,pages);
+    }
+    _bCandleData=candles;
+    _bCandles.setData(candles);
+    _bVolume.setData(candles.map(c=>({time:c.time,value:c.volume,color:c.close>=c.open?'rgba(63,185,80,0.35)':'rgba(248,81,73,0.35)'})));
+    _applyIndicators();
+    _drawPoolZones();
+    _renderUserLines();
+    _bchart.timeScale().scrollToRealTime();
+    const wsInt=CHART_TF_MAP[tfLabel]||'1d';
+    _bConnectWS(wsInt);
+  }catch(e){console.error('[BChart] fetch error:',e);}
 }
 
 function _bConnectWS(interval) {
@@ -5334,26 +5385,15 @@ function _bConnectWS(interval) {
   const ws = new WebSocket(`wss://stream.binance.com:9443/ws/btcusdt@kline_${interval}`);
   _bWS = ws;
 
-  ws.onmessage = e => {
-    try {
-      const k = JSON.parse(e.data).k;
-      if (!k || !_bCandles) return;
-      const bar = {
-        time:  Math.floor(k.t / 1000),
-        open:  parseFloat(k.o),
-        high:  parseFloat(k.h),
-        low:   parseFloat(k.l),
-        close: parseFloat(k.c),
-      };
-      const vol = {
-        time:  Math.floor(k.t / 1000),
-        value: parseFloat(k.v),
-        color: parseFloat(k.c) >= parseFloat(k.o)
-          ? 'rgba(63,185,80,0.35)' : 'rgba(248,81,73,0.35)',
-      };
+  ws.onmessage=e=>{
+    try{
+      const k=JSON.parse(e.data).k;
+      if(!k||!_bCandles)return;
+      const bar={time:Math.floor(k.t/1000),open:parseFloat(k.o),high:parseFloat(k.h),low:parseFloat(k.l),close:parseFloat(k.c),volume:parseFloat(k.v)};
       _bCandles.update(bar);
-      _bVolume.update(vol);
-    } catch(err) {}
+      _bVolume.update({time:bar.time,value:bar.volume,color:bar.close>=bar.open?'rgba(63,185,80,0.35)':'rgba(248,81,73,0.35)'});
+      if(_bCandleData.length){const last=_bCandleData[_bCandleData.length-1];if(last.time===bar.time)_bCandleData[_bCandleData.length-1]=bar;else if(bar.time>last.time)_bCandleData.push(bar);}
+    }catch(err){}
   };
 
   const reconnect = () => {
@@ -5372,6 +5412,54 @@ function setChartTF(tf) {
 function rebuildBinanceChart() {
   initBinanceChart();
 }
+
+// FASE 3 — POOL ZONES
+let _bPoolLines=[], _showPoolZones=true;
+function _drawPoolZones(){
+  _bPoolLines.forEach(pl=>{try{_bCandles.removePriceLine(pl);}catch(e){}});
+  _bPoolLines=[];
+  if(!_showPoolZones||!_bCandles||!_bCandleData.length)return;
+  const modeKey=typeof currentMode!=='undefined'?currentMode:'scalping';
+  const modeData=typeof POOLS!=='undefined'?(POOLS[modeKey]||POOLS.scalping||{}):
+{};
+  const tfData=modeData[_bChartTF]||{};
+  const INTCOL={red:'rgba(248,81,73,0.85)',orange:'rgba(224,123,0,0.85)',yellow:'rgba(210,153,34,0.85)',green:'rgba(63,185,80,0.7)'};
+  [...(tfData.long_pools||[]).map(p=>({...p,side:'long'})),...(tfData.short_pools||[]).map(p=>({...p,side:'short'}))]
+    .forEach(pool=>{
+      const col=INTCOL[pool.intensity]||'rgba(120,120,120,0.6)';
+      const lbl=(pool.side==='long'?'▲ ':'▼ ')+(pool.label||'').substring(0,24);
+      const hi=_bCandles.createPriceLine({price:pool.high,color:col,lineWidth:1,lineStyle:0,axisLabelVisible:true,title:lbl});
+      const lo=_bCandles.createPriceLine({price:pool.low,color:col,lineWidth:1,lineStyle:2,axisLabelVisible:false,title:''});
+      _bPoolLines.push(hi,lo);
+    });
+}
+function togglePoolZones(){
+  _showPoolZones=!_showPoolZones;
+  const btn=document.getElementById('chart-zones-btn');
+  if(btn)btn.classList.toggle('active',_showPoolZones);
+  _drawPoolZones();
+}
+
+// FASE 4 — DRAWING TOOLS
+let _drawMode=false,_userLines=JSON.parse(localStorage.getItem('td_chart_lines')||'[]'),_userPriceLines=[];
+function _saveUserLines(){localStorage.setItem('td_chart_lines',JSON.stringify(_userLines));}
+function _renderUserLines(){
+  _userPriceLines.forEach(pl=>{try{_bCandles.removePriceLine(pl);}catch(e){}});
+  _userPriceLines=[];
+  if(!_bCandles)return;
+  _userLines.forEach((line,idx)=>{
+    const pl=_bCandles.createPriceLine({price:line.price,color:line.color||'#58a6ff',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:line.label||('L'+(idx+1))});
+    _userPriceLines.push(pl);
+  });
+}
+function toggleDrawMode(){
+  _drawMode=!_drawMode;
+  const btn=document.getElementById('chart-draw-btn');
+  const wrap=document.getElementById('binance-chart');
+  if(btn)btn.classList.toggle('active',_drawMode);
+  if(wrap)wrap.style.cursor=_drawMode?'crosshair':'';
+}
+function clearUserLines(){_userLines=[];_saveUserLines();_renderUserLines();}
 
 // ════════════════════════════════════════════════════
 // FASE 2 — INDICADORES TÉCNICOS
