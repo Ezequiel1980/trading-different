@@ -5373,6 +5373,68 @@ function rebuildBinanceChart() {
   initBinanceChart();
 }
 
+// ════════════════════════════════════════════════════
+// FASE 2 — INDICADORES TÉCNICOS
+// ════════════════════════════════════════════════════
+
+function _sma(c,n){return c.map((_,i)=>{if(i<n-1)return null;let s=0;for(let j=i-n+1;j<=i;j++)s+=c[j];return s/n;});}
+function _ema(c,n){const k=2/(n+1),o=new Array(c.length).fill(null);for(let i=0;i<c.length;i++){o[i]=i===0?c[i]:c[i]*k+o[i-1]*(1-k);}for(let i=0;i<Math.min(n-1,c.length);i++)o[i]=null;return o;}
+function _bb(c,n=20,m=2){const s=_sma(c,n);return c.map((_,i)=>{if(s[i]===null)return{upper:null,lower:null,mid:null};let v=0;for(let j=i-n+1;j<=i;j++)v+=(c[j]-s[i])**2;const sd=Math.sqrt(v/n);return{upper:s[i]+m*sd,lower:s[i]-m*sd,mid:s[i]};});}
+function _rsi(c,n=14){const o=new Array(c.length).fill(null);let ag=0,al=0;for(let i=1;i<c.length;i++){const d=c[i]-c[i-1],g=d>0?d:0,l=d<0?-d:0;if(i<=n){ag+=g/n;al+=l/n;}else{ag=(ag*(n-1)+g)/n;al=(al*(n-1)+l)/n;}if(i>=n)o[i]=100-(100/(1+(al===0?1e10:ag/al)));}return o;}
+function _macd(c,f=12,s=26,sg=9){const ef=_ema(c,f),es=_ema(c,s);const ml=c.map((_,i)=>(ef[i]!==null&&es[i]!==null)?ef[i]-es[i]:null);const sl=_ema(ml.map(v=>v??0),sg);return c.map((_,i)=>({macd:ml[i],signal:sl[i],hist:(ml[i]!==null&&sl[i]!==null)?ml[i]-sl[i]:null}));}
+
+let _indSeries = {};
+function _clearIndicatorSeries(){Object.values(_indSeries).forEach(s=>{try{_bchart.removeSeries(s);}catch(e){}});_indSeries={};}
+
+function _applyIndicators() {
+  if (!_bchart || !_bCandleData.length) return;
+  _clearIndicatorSeries();
+  const hasRSI=_indCfg.rsi, hasMACD=_indCfg.macd;
+  const sub=(hasRSI?1:0)+(hasMACD?1:0);
+  const mainBot=sub===0?0.22:sub===1?0.36:0.50;
+  _bchart.priceScale('right').applyOptions({scaleMargins:{top:0.06,bottom:mainBot}});
+  _bchart.priceScale('vol').applyOptions({scaleMargins:{top:0.78,bottom:mainBot}});
+  const times=_bCandleData.map(c=>c.time);
+  const closes=_bCandleData.map(c=>c.close);
+  const toS=(arr)=>arr.map((v,i)=>v!==null?{time:times[i],value:v}:null).filter(Boolean);
+  const base={priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false};
+
+  if(_indCfg.ma20){const s=_bchart.addLineSeries({...base,color:'#e3b341',lineWidth:1});s.setData(toS(_sma(closes,20)));_indSeries.ma20=s;}
+  if(_indCfg.ma50){const s=_bchart.addLineSeries({...base,color:'#f0883e',lineWidth:1});s.setData(toS(_sma(closes,50)));_indSeries.ma50=s;}
+  if(_indCfg.ema21){const s=_bchart.addLineSeries({...base,color:'#bc8cff',lineWidth:1,lineStyle:1});s.setData(toS(_ema(closes,21)));_indSeries.ema21=s;}
+  if(_indCfg.bb){
+    const v=_bb(closes,20,2);
+    const opts={...base,lineWidth:1};
+    const su=_bchart.addLineSeries({...opts,color:'rgba(88,166,255,0.6)'});
+    const sm=_bchart.addLineSeries({...opts,color:'rgba(88,166,255,0.3)',lineStyle:2});
+    const sl=_bchart.addLineSeries({...opts,color:'rgba(88,166,255,0.6)'});
+    su.setData(v.map((x,i)=>x.upper!==null?{time:times[i],value:x.upper}:null).filter(Boolean));
+    sm.setData(v.map((x,i)=>x.mid!==null?{time:times[i],value:x.mid}:null).filter(Boolean));
+    sl.setData(v.map((x,i)=>x.lower!==null?{time:times[i],value:x.lower}:null).filter(Boolean));
+    _indSeries.bbU=su;_indSeries.bbM=sm;_indSeries.bbL=sl;
+  }
+  if(hasRSI){
+    const rsiTop=hasMACD?0.56:0.67,rsiBot=hasMACD?0.22:0.05;
+    const rs=_bchart.addLineSeries({...base,color:'#58a6ff',lineWidth:1,priceScaleId:'rsi',lastValueVisible:true});
+    _bchart.priceScale('rsi').applyOptions({scaleMargins:{top:rsiTop,bottom:rsiBot},borderColor:'#21262d'});
+    rs.setData(toS(_rsi(closes,14)));
+    const mkL=(val,col)=>{const s=_bchart.addLineSeries({...base,color:col,lineWidth:1,lineStyle:2,priceScaleId:'rsi'});s.setData([{time:times[0],value:val},{time:times[times.length-1],value:val}]);return s;};
+    _indSeries.rsi=rs;_indSeries.rsi70=mkL(70,'rgba(248,81,73,0.4)');_indSeries.rsi30=mkL(30,'rgba(63,185,80,0.4)');
+  }
+  if(hasMACD){
+    const mv=_macd(closes,12,26,9);
+    const mlo=_bchart.addLineSeries({...base,color:'#58a6ff',lineWidth:1,priceScaleId:'macd'});
+    const mso=_bchart.addLineSeries({...base,color:'#f0883e',lineWidth:1,priceScaleId:'macd'});
+    const mho=_bchart.addHistogramSeries({priceScaleId:'macd',priceLineVisible:false,lastValueVisible:false});
+    _bchart.priceScale('macd').applyOptions({scaleMargins:{top:0.78,bottom:0.02},borderColor:'#21262d'});
+    mlo.setData(mv.map((v,i)=>v.macd!==null?{time:times[i],value:v.macd}:null).filter(Boolean));
+    mso.setData(mv.map((v,i)=>v.signal!==null?{time:times[i],value:v.signal}:null).filter(Boolean));
+    mho.setData(mv.map((v,i)=>v.hist!==null?{time:times[i],value:v.hist,color:v.hist>=0?'rgba(63,185,80,0.6)':'rgba(248,81,73,0.6)'}:null).filter(Boolean));
+    _indSeries.macdL=mlo;_indSeries.macdS=mso;_indSeries.macdH=mho;
+  }
+}
+
+
 // ── Studies modal (indicators — Fase 2 will wire them) ──
 const CHART_INDICATORS = [
   { id:'ma20',  name:'MA 20',            group:'Tendencia' },
@@ -5415,6 +5477,7 @@ function _saveIndCfg() {
     if (cb) _indCfg[s.id] = cb.checked;
   });
   localStorage.setItem('td_ind_cfg', JSON.stringify(_indCfg));
+  _applyIndicators();
   renderActiveStudiesBadges();
 }
 
@@ -5437,6 +5500,7 @@ function renderActiveStudiesBadges() {
 function _removeInd(id) {
   _indCfg[id] = false;
   localStorage.setItem('td_ind_cfg', JSON.stringify(_indCfg));
+  _applyIndicators();
   renderActiveStudiesBadges();
 }
 
