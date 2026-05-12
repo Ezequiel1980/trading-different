@@ -1349,7 +1349,14 @@ body:has(#bottom-panel.open) .app-layout {
 }
 
 </style>
-  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+  /* ── Binance Chart TF selector ── */
+  .chart-tf-btn { padding:2px 8px; border-radius:4px; border:1px solid var(--border); background:var(--surface-2); color:var(--muted); font-size:10px; font-family:var(--font-mono); cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .chart-tf-btn:hover { color:var(--text); border-color:#58a6ff55; }
+  .chart-tf-btn.active { background:rgba(31,111,235,0.15); border-color:#1f6feb; color:#58a6ff; font-weight:700; }
+  #binance-chart canvas { display:block; }
+  </style>
 </head>
 <body data-tab="chart">
 
@@ -1425,7 +1432,7 @@ body:has(#bottom-panel.open) .app-layout {
         <span style="font-size:9px;color:var(--muted);white-space:nowrap;font-family:var(--font-mono)">IND:</span>
         <div id="tv-active-studies" style="display:flex;gap:3px;overflow:hidden;max-width:180px"></div>
         <button onclick="openStudiesModal()" style="padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font-size:10px;cursor:pointer;white-space:nowrap;flex-shrink:0">+ Ind</button>
-        <button onclick="rebuildTVChart()" title="Recargar gráfico" style="padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font-size:11px;cursor:pointer;flex-shrink:0">↺</button>
+        <button onclick="rebuildBinanceChart()" title="Recargar gráfico" style="padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font-size:11px;cursor:pointer;flex-shrink:0">↺</button>
       </div>
     </div>
 
@@ -1433,8 +1440,24 @@ body:has(#bottom-panel.open) .app-layout {
     <div class="main-panels">
 
       <!-- ── PANEL: GRÁFICO ── -->
-      <div id="main-panel-chart" class="main-panel" style="contain:layout;overflow:hidden">
-        <div id="tradingview_chart" style="width:100%;height:100%"></div>
+      <div id="main-panel-chart" class="main-panel" style="contain:layout;overflow:hidden;flex-direction:column">
+        <!-- TF selector bar -->
+        <div style="display:flex;align-items:center;gap:3px;padding:5px 10px;background:var(--surface-1);border-bottom:1px solid var(--border);flex-shrink:0">
+          <span style="font-size:9px;color:var(--muted);font-family:var(--font-mono);margin-right:4px;letter-spacing:.05em">TF</span>
+          <button class="chart-tf-btn" data-tf="1m"  onclick="setChartTF('1m')">1m</button>
+          <button class="chart-tf-btn" data-tf="5m"  onclick="setChartTF('5m')">5m</button>
+          <button class="chart-tf-btn active" data-tf="15m" onclick="setChartTF('15m')">15m</button>
+          <button class="chart-tf-btn" data-tf="30m" onclick="setChartTF('30m')">30m</button>
+          <button class="chart-tf-btn" data-tf="1H"  onclick="setChartTF('1H')">1H</button>
+          <button class="chart-tf-btn" data-tf="4H"  onclick="setChartTF('4H')">4H</button>
+          <button class="chart-tf-btn" data-tf="8H"  onclick="setChartTF('8H')">8H</button>
+          <button class="chart-tf-btn" data-tf="1D"  onclick="setChartTF('1D')">1D</button>
+          <button class="chart-tf-btn" data-tf="1W"  onclick="setChartTF('1W')">1W</button>
+          <div style="flex:1"></div>
+          <span id="chart-symbol-label" style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">BTC/USDT · Binance</span>
+        </div>
+        <!-- Canvas chart -->
+        <div id="binance-chart" style="flex:1;min-height:0;width:100%;position:relative;overflow:hidden"></div>
       </div>
 
       <!-- ── PANEL: ANÁLISIS ── -->
@@ -4930,7 +4953,7 @@ updatePoolMap();
 try { updateSignals(); } catch(e) { console.warn('[TD] updateSignals init:', e); }
 buildLevelsTable();
 renderPoolAccuracy();
-setTimeout(initTVChart, 300); // delay so layout settles before TV widget measures container
+setTimeout(initBinanceChart, 400); // delay so layout settles before chart measures container
 fetchInitialPrice();
 connectWS();
 fetchOIHistory();
@@ -5133,179 +5156,288 @@ function showKbHint(msg) {
 }
 
 // ════════════════════════════════════════════════════════
-// TRADINGVIEW — INDICADORES CONFIGURABLES
+// BINANCE CHART — Lightweight Charts v4
 // ════════════════════════════════════════════════════════
-const TV_STUDIES_CATALOG = [
-  { id: 'STD;RSI',            name: 'RSI',                  default: false, group: 'Momentum' },
-  { id: 'STD;MACD',           name: 'MACD',                 default: false, group: 'Momentum' },
-  { id: 'STD;Stochastic',     name: 'Stocástico',           default: false, group: 'Momentum' },
-  { id: 'STD;CCI',            name: 'CCI',                  default: false, group: 'Momentum' },
-  { id: 'STD;EMA',            name: 'EMA',                  default: false, group: 'Tendencia' },
-  { id: 'STD;SMA',            name: 'SMA',                  default: false, group: 'Tendencia' },
-  { id: 'STD;BB',             name: 'Bollinger Bands',       default: false, group: 'Tendencia' },
-  { id: 'STD;Ichimoku Cloud', name: 'Ichimoku Cloud',       default: false, group: 'Tendencia' },
-  { id: 'STD;VWAP',           name: 'VWAP',                 default: false, group: 'Precio/Vol' },
-  { id: 'STD;Volume',         name: 'Volumen (panel)',       default: false, group: 'Precio/Vol' },
-  { id: 'STD;OBV',            name: 'OBV',                  default: false, group: 'Precio/Vol' },
-  { id: 'STD;ATR',            name: 'ATR',                  default: false, group: 'Volatilidad' },
-  { id: 'STD;Chaikin Oscillator', name: 'Chaikin Osc.',     default: false, group: 'Volatilidad' },
-  { id: 'STD;Parabolic SAR',  name: 'Parabolic SAR',        default: false, group: 'Tendencia' },
-  { id: 'STD;ADX',            name: 'ADX / DMI',            default: false, group: 'Momentum' },
-  { id: 'STD;Williams %R',    name: 'Williams %R',          default: false, group: 'Momentum' },
-];
 
-// Load saved config
-let tvStudiesConfig = JSON.parse(localStorage.getItem('td_tv_studies') || 'null');
-if (!tvStudiesConfig) {
-  // Default: nothing enabled (clean chart)
-  tvStudiesConfig = {
-    studies: {},
-    compareBindance: true,
-    compareBybit: false
-  };
-  TV_STUDIES_CATALOG.forEach(s => { tvStudiesConfig.studies[s.id] = s.default; });
+const CHART_TF_MAP = {
+  '1m':'1m','5m':'5m','15m':'15m','30m':'30m',
+  '1H':'1h','4H':'4h','8H':'8h','1D':'1d','1W':'1w'
+};
+
+// Indicator config (persisted, wired in Fase 2)
+let _indCfg = JSON.parse(localStorage.getItem('td_ind_cfg') || 'null') || {
+  ma20:false, ma50:false, ema21:false, bb:false, rsi:false, macd:false
+};
+
+let _bchart    = null;  // LW chart instance
+let _bCandles  = null;  // candlestick series
+let _bVolume   = null;  // volume histogram series
+let _bChartTF  = '15m'; // active TF label
+let _bWS       = null;  // live WebSocket
+let _bResizeOb = null;  // ResizeObserver
+
+function initBinanceChart() {
+  const wrap = document.getElementById('binance-chart');
+  if (!wrap) return;
+  if (typeof LightweightCharts === 'undefined') { setTimeout(initBinanceChart, 400); return; }
+
+  // Cleanup previous instance
+  if (_bchart)    { try { _bchart.remove(); } catch(e){} _bchart = null; }
+  if (_bWS)       { _bWS.close(); _bWS = null; }
+  if (_bResizeOb) { _bResizeOb.disconnect(); _bResizeOb = null; }
+  wrap.innerHTML = '';
+
+  _bchart = LightweightCharts.createChart(wrap, {
+    width:  wrap.clientWidth  || 800,
+    height: wrap.clientHeight || 500,
+    layout: {
+      background: { type: 'solid', color: '#0d1117' },
+      textColor:  '#8b949e',
+      fontSize:   11,
+      fontFamily: "'JetBrains Mono','Courier New',monospace",
+    },
+    grid: {
+      vertLines: { color: 'rgba(33,38,45,0.9)' },
+      horzLines: { color: 'rgba(33,38,45,0.9)' },
+    },
+    crosshair: {
+      mode:     LightweightCharts.CrosshairMode.Normal,
+      vertLine: { color:'rgba(88,166,255,0.5)', style:LightweightCharts.LineStyle.Dashed, width:1, labelBackgroundColor:'#1f6feb' },
+      horzLine: { color:'rgba(88,166,255,0.5)', style:LightweightCharts.LineStyle.Dashed, width:1, labelBackgroundColor:'#1f6feb' },
+    },
+    timeScale: {
+      timeVisible:    true,
+      secondsVisible: false,
+      borderColor:    '#21262d',
+      rightOffset:    8,
+      tickMarkFormatter: (t) => {
+        const d = new Date(t * 1000);
+        return d.toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit',timeZone:'America/Argentina/Buenos_Aires'});
+      },
+    },
+    rightPriceScale: {
+      borderColor:  '#21262d',
+      scaleMargins: { top: 0.06, bottom: 0.22 },
+    },
+    localization: {
+      priceFormatter: p => '$' + p.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}),
+    },
+  });
+
+  _bCandles = _bchart.addCandlestickSeries({
+    upColor:         '#3fb950',
+    downColor:       '#f85149',
+    borderUpColor:   '#3fb950',
+    borderDownColor: '#f85149',
+    wickUpColor:     '#3fb950',
+    wickDownColor:   '#f85149',
+  });
+
+  _bVolume = _bchart.addHistogramSeries({
+    priceFormat:  { type: 'volume' },
+    priceScaleId: 'vol',
+  });
+  _bchart.priceScale('vol').applyOptions({
+    scaleMargins: { top: 0.8, bottom: 0 },
+  });
+
+  // ── OHLCV floating tooltip ──
+  const tip = document.createElement('div');
+  tip.id = 'chart-ohlcv-tip';
+  tip.style.cssText = [
+    'position:absolute','top:8px','left:8px','z-index:20',
+    'font-family:monospace','font-size:10px','line-height:1.7',
+    'color:#cdd9e5','pointer-events:none',
+    'background:rgba(13,17,23,0.88)','padding:5px 10px',
+    'border-radius:6px','border:1px solid #21262d',
+    'white-space:nowrap','display:none'
+  ].join(';');
+  wrap.appendChild(tip);
+
+  _bchart.subscribeCrosshairMove(param => {
+    if (!param || !param.time || !param.seriesData) { tip.style.display='none'; return; }
+    const c = param.seriesData.get(_bCandles);
+    const v = param.seriesData.get(_bVolume);
+    if (!c) { tip.style.display='none'; return; }
+    const pct  = ((c.close - c.open) / c.open * 100).toFixed(2);
+    const col  = c.close >= c.open ? '#3fb950' : '#f85149';
+    const sign = c.close >= c.open ? '+' : '';
+    const fmt  = n => '$' + Number(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+    tip.style.display = 'block';
+    tip.innerHTML =
+      `<span style="color:#6e7681">${_bChartTF} · BTC/USDT</span>  ` +
+      `O:<span style="color:${col}">${fmt(c.open)}</span>  ` +
+      `H:<span style="color:#3fb950">${fmt(c.high)}</span>  ` +
+      `L:<span style="color:#f85149">${fmt(c.low)}</span>  ` +
+      `C:<span style="color:${col};font-weight:700">${fmt(c.close)}</span>  ` +
+      `<span style="color:${col}">${sign}${pct}%</span>` +
+      (v ? `  <span style="color:#6e7681">Vol:${(v.value/1e3).toFixed(1)}K</span>` : '');
+  });
+
+  // ── ResizeObserver ──
+  _bResizeOb = new ResizeObserver(() => {
+    if (!_bchart || !wrap.clientWidth || !wrap.clientHeight) return;
+    _bchart.applyOptions({ width: wrap.clientWidth, height: wrap.clientHeight });
+  });
+  _bResizeOb.observe(wrap);
+
+  // ── Load klines ──
+  _bLoadKlines(_bChartTF);
 }
 
-let tvWidgetInstance = null;
+async function _bLoadKlines(tfLabel) {
+  _bChartTF = tfLabel;
+  const interval = CHART_TF_MAP[tfLabel] || '15m';
 
-function buildStudiesArray() {
-  return TV_STUDIES_CATALOG
-    .filter(s => tvStudiesConfig.studies[s.id])
-    .map(s => s.id);
-}
+  // Highlight active TF button
+  document.querySelectorAll('.chart-tf-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tf === tfLabel)
+  );
 
-function buildCompareSymbols() {
-  const arr = [];
-  if (tvStudiesConfig.compareBindance !== false) arr.push({ symbol: 'BINANCE:BTCUSDT', position: 'SameScale' });
-  if (tvStudiesConfig.compareBybit) arr.push({ symbol: 'BYBIT:BTCUSDT', position: 'SameScale' });
-  return arr;
-}
-
-function initTVChart() {
-  if (typeof TradingView === 'undefined') {
-    setTimeout(initTVChart, 500);
-    return;
-  }
-  const container = document.getElementById('tradingview_chart');
-  if (!container) return;
-
-  // Clear any previous widget
-  container.innerHTML = '';
-
-  const studies        = buildStudiesArray();
-  const compareSymbols = buildCompareSymbols();
-
-  const config = {
-    autosize: true,
-    symbol: 'COINBASE:BTCUSD',
-    interval: '15',
-    timezone: 'America/Argentina/Buenos_Aires',
-    theme: 'dark',
-    style: '1',
-    locale: 'es',
-    toolbar_bg: '#0d1117',
-    enable_publishing: false,
-    hide_top_toolbar: false,
-    hide_side_toolbar: false,
-    hide_legend: false,
-    save_image: false,
-    container_id: 'tradingview_chart',
-    show_popup_button: true,
-    popup_width: '1000',
-    popup_height: '650',
-    withdateranges: true,
-    allow_symbol_change: true,
-    drawings_access: { type: 'all' },
-  };
-  if (studies.length)        config.studies         = studies;
-  if (compareSymbols.length) config.compare_symbols = compareSymbols;
+  if (!_bCandles) return;
 
   try {
-    tvWidgetInstance = new TradingView.widget(config);
-    console.log('[TD] TradingView widget initialized');
+    const url  = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=500`;
+    const rows = await fetch(url).then(r => r.json());
+
+    const candles = rows.map(r => ({
+      time:  Math.floor(r[0] / 1000),
+      open:  parseFloat(r[1]),
+      high:  parseFloat(r[2]),
+      low:   parseFloat(r[3]),
+      close: parseFloat(r[4]),
+    }));
+    const vols = rows.map(r => ({
+      time:  Math.floor(r[0] / 1000),
+      value: parseFloat(r[5]),
+      color: parseFloat(r[4]) >= parseFloat(r[1])
+        ? 'rgba(63,185,80,0.35)' : 'rgba(248,81,73,0.35)',
+    }));
+
+    _bCandles.setData(candles);
+    _bVolume.setData(vols);
+    _bchart.timeScale().scrollToRealTime();
+
+    // Reconnect live WS
+    _bConnectWS(interval);
+
   } catch(e) {
-    console.warn('[TD] TradingView.widget error:', e);
+    console.error('[BChart] fetch error:', e);
   }
-  renderActiveStudiesBadges();
 }
 
-function rebuildTVChart() {
-  const container = document.getElementById('tradingview_chart');
-  if (container) container.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;background:#000">↺ Recargando gráfico...</div>';
-  setTimeout(initTVChart, 600);
+function _bConnectWS(interval) {
+  if (_bWS) { _bWS.close(); _bWS = null; }
+  const ws = new WebSocket(`wss://stream.binance.com:9443/ws/btcusdt@kline_${interval}`);
+  _bWS = ws;
+
+  ws.onmessage = e => {
+    try {
+      const k = JSON.parse(e.data).k;
+      if (!k || !_bCandles) return;
+      const bar = {
+        time:  Math.floor(k.t / 1000),
+        open:  parseFloat(k.o),
+        high:  parseFloat(k.h),
+        low:   parseFloat(k.l),
+        close: parseFloat(k.c),
+      };
+      const vol = {
+        time:  Math.floor(k.t / 1000),
+        value: parseFloat(k.v),
+        color: parseFloat(k.c) >= parseFloat(k.o)
+          ? 'rgba(63,185,80,0.35)' : 'rgba(248,81,73,0.35)',
+      };
+      _bCandles.update(bar);
+      _bVolume.update(vol);
+    } catch(err) {}
+  };
+
+  const reconnect = () => {
+    if (_bWS === ws) setTimeout(() => { if (_bWS === ws) _bConnectWS(interval); }, 3000);
+  };
+  ws.onerror = reconnect;
+  ws.onclose = e => { if (!e.wasClean) reconnect(); };
 }
 
-function saveStudiesConfig() {
-  TV_STUDIES_CATALOG.forEach(s => {
-    const cb = document.getElementById('study-cb-' + s.id.replace(/[^a-zA-Z0-9]/g, '_'));
-    if (cb) tvStudiesConfig.studies[s.id] = cb.checked;
-  });
-  const cbBin = document.getElementById('tv-compare-binance');
-  const cbBybit = document.getElementById('tv-compare-bybit');
-  if (cbBin)   tvStudiesConfig.compareBindance = cbBin.checked;
-  if (cbBybit) tvStudiesConfig.compareBybit    = cbBybit.checked;
-  localStorage.setItem('td_tv_studies', JSON.stringify(tvStudiesConfig));
-  renderActiveStudiesBadges();
+function setChartTF(tf) {
+  if (tf === _bChartTF) return;
+  if (_bWS) { _bWS.close(); _bWS = null; }
+  _bLoadKlines(tf);
 }
 
-function renderActiveStudiesBadges() {
-  const bar = document.getElementById('tv-active-studies');
-  if (!bar) return;
-  const active = TV_STUDIES_CATALOG.filter(s => tvStudiesConfig.studies[s.id]);
-  if (!active.length) {
-    bar.innerHTML = '<span style="font-size:10px;color:var(--muted);font-style:italic">Sin indicadores activos — gráfico limpio</span>';
-    return;
-  }
-  bar.innerHTML = active.map(s =>
-    `<span style="padding:2px 8px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);font-size:10px;color:var(--text);display:flex;align-items:center;gap:4px">
-      ${s.name}
-      <span onclick="removeSingleStudy('${s.id}')" style="color:var(--red);cursor:pointer;font-size:11px;line-height:1">×</span>
-    </span>`
-  ).join('');
+function rebuildBinanceChart() {
+  initBinanceChart();
 }
 
-function removeSingleStudy(id) {
-  tvStudiesConfig.studies[id] = false;
-  localStorage.setItem('td_tv_studies', JSON.stringify(tvStudiesConfig));
-  rebuildTVChart();
-}
+// ── Studies modal (indicators — Fase 2 will wire them) ──
+const CHART_INDICATORS = [
+  { id:'ma20',  name:'MA 20',            group:'Tendencia' },
+  { id:'ma50',  name:'MA 50',            group:'Tendencia' },
+  { id:'ema21', name:'EMA 21',           group:'Tendencia' },
+  { id:'bb',    name:'Bollinger Bands',  group:'Tendencia' },
+  { id:'rsi',   name:'RSI (14)',         group:'Momentum'  },
+  { id:'macd',  name:'MACD',             group:'Momentum'  },
+];
 
 function openStudiesModal() {
-  // Render checkboxes grouped
   const grid = document.getElementById('studies-grid');
   const groups = {};
-  TV_STUDIES_CATALOG.forEach(s => {
+  CHART_INDICATORS.forEach(s => {
     if (!groups[s.group]) groups[s.group] = [];
     groups[s.group].push(s);
   });
-  grid.innerHTML = Object.entries(groups).map(([g, studies]) =>
+  grid.innerHTML = Object.entries(groups).map(([g, inds]) =>
     `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:8px">${g.toUpperCase()}</div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${studies.map(s => {
-          const cbId = 'study-cb-' + s.id.replace(/[^a-zA-Z0-9]/g, '_');
-          const checked = tvStudiesConfig.studies[s.id] ? 'checked' : '';
-          return `<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--text)">
-            <input type="checkbox" id="${cbId}" ${checked} style="width:14px;height:14px;cursor:pointer">
+        ${inds.map(s => `
+          <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px;color:var(--text)">
+            <input type="checkbox" id="ind-cb-${s.id}" ${_indCfg[s.id]?'checked':''} style="width:14px;height:14px;cursor:pointer" onchange="_saveIndCfg()">
             ${s.name}
-          </label>`;
-        }).join('')}
+          </label>`).join('')}
       </div>
     </div>`
   ).join('');
-
-  // Sync compare checkboxes
-  const cbBin = document.getElementById('tv-compare-binance');
-  const cbBybit = document.getElementById('tv-compare-bybit');
-  if (cbBin)   cbBin.checked   = tvStudiesConfig.compareBindance !== false;
-  if (cbBybit) cbBybit.checked = !!tvStudiesConfig.compareBybit;
-
   document.getElementById('studies-modal').classList.add('open');
 }
 
 function closeStudiesModal() {
   document.getElementById('studies-modal').classList.remove('open');
 }
+
+function _saveIndCfg() {
+  CHART_INDICATORS.forEach(s => {
+    const cb = document.getElementById('ind-cb-' + s.id);
+    if (cb) _indCfg[s.id] = cb.checked;
+  });
+  localStorage.setItem('td_ind_cfg', JSON.stringify(_indCfg));
+  renderActiveStudiesBadges();
+}
+
+function renderActiveStudiesBadges() {
+  const bar = document.getElementById('tv-active-studies');
+  if (!bar) return;
+  const active = CHART_INDICATORS.filter(s => _indCfg[s.id]);
+  if (!active.length) {
+    bar.innerHTML = '<span style="font-size:10px;color:var(--muted);font-style:italic">Gráfico limpio</span>';
+    return;
+  }
+  bar.innerHTML = active.map(s =>
+    `<span style="padding:2px 8px;border-radius:4px;background:var(--bg3);border:1px solid var(--border);font-size:10px;color:var(--text);display:flex;align-items:center;gap:4px">
+      ${s.name}
+      <span onclick="_removeInd('${s.id}')" style="color:var(--red);cursor:pointer;font-size:11px;line-height:1">×</span>
+    </span>`
+  ).join('');
+}
+
+function _removeInd(id) {
+  _indCfg[id] = false;
+  localStorage.setItem('td_ind_cfg', JSON.stringify(_indCfg));
+  renderActiveStudiesBadges();
+}
+
+function saveStudiesConfig() { _saveIndCfg(); }
 
 // ════════════════════════════════════════════════════════
 // LIQUIDATION HEATMAP — Order Book Depth Canvas
@@ -5771,42 +5903,25 @@ async function runBacktestAllTF() {
 </script>
 <!-- STUDIES MODAL -->
 <div class="modal-overlay" id="studies-modal" onclick="if(event.target===this)closeStudiesModal()">
-  <div class="modal" style="max-width:600px;width:96vw;max-height:85vh;overflow-y:auto">
+  <div class="modal" style="max-width:520px;width:96vw;max-height:80vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="margin:0">📊 Indicadores del Gráfico</h3>
+      <h3 style="margin:0">📊 Indicadores — BTC/USDT</h3>
       <button onclick="closeStudiesModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Seleccioná los indicadores. Los cambios se guardan automáticamente y el gráfico se reconstruye.</p>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Seleccioná los indicadores. Se calculan sobre los datos de Binance.</p>
 
-    <!-- Built-in studies grid -->
+    <!-- Indicators grid -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px" id="studies-grid"></div>
 
-    <!-- Separador -->
+    <!-- Pine Script export -->
     <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">SÍMBOLO DE COMPARACIÓN</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
-          <input type="checkbox" id="tv-compare-binance" onchange="saveStudiesConfig()"> Binance BTCUSDT
-        </label>
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
-          <input type="checkbox" id="tv-compare-bybit" onchange="saveStudiesConfig()"> Bybit BTCUSDT
-        </label>
-      </div>
-    </div>
-
-    <!-- Pine Script info -->
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--purple);margin-bottom:6px">📐 Pine Script personalizado</div>
-      <p style="font-size:11px;color:var(--muted);margin:0 0 8px">El widget público de TradingView no permite cargar Pine Scripts propios directamente. Para usar tus scripts:</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="window.open('https://www.tradingview.com/chart/?symbol=COINBASE:BTCUSD&interval=15','_blank')" style="padding:6px 14px;border-radius:6px;border:1px solid var(--purple);background:rgba(188,140,255,0.1);color:var(--purple);font-size:11px;cursor:pointer">🌐 Abrir en TradingView</button>
-        <button onclick="exportPineScript();closeStudiesModal()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:rgba(168,255,62,0.1);color:var(--green);font-size:11px;cursor:pointer">📋 Copiar script de pools</button>
-      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">EXPORTAR POOLS</div>
+      <button onclick="exportPineScript();closeStudiesModal()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:rgba(168,255,62,0.1);color:var(--green);font-size:11px;cursor:pointer">📋 Copiar Pine Script de pools</button>
     </div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-secondary" onclick="closeStudiesModal()">Cerrar</button>
-      <button class="btn btn-primary" onclick="saveStudiesConfig();rebuildTVChart();closeStudiesModal()">💾 Aplicar y recargar</button>
+      <button class="btn btn-primary" onclick="_saveIndCfg();closeStudiesModal()">💾 Aplicar</button>
     </div>
   </div>
 </div>
