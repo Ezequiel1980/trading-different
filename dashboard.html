@@ -1356,6 +1356,8 @@ body:has(#bottom-panel.open) .app-layout {
   .chart-tf-btn:hover { color:var(--text); border-color:#58a6ff55; }
   .chart-tf-btn.active { background:rgba(31,111,235,0.15); border-color:#1f6feb; color:#58a6ff; font-weight:700; }
   #binance-chart canvas { display:block; }
+  /* Hide LightweightCharts attribution (MIT library branding) */
+  #binance-chart a[href*="tradingview"], #binance-chart a[href*="lightweight"] { display:none !important; }
   </style>
 </head>
 <body data-tab="chart">
@@ -5210,10 +5212,6 @@ function initBinanceChart() {
       secondsVisible: false,
       borderColor:    '#21262d',
       rightOffset:    8,
-      tickMarkFormatter: (t) => {
-        const d = new Date(t * 1000);
-        return d.toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit',timeZone:'America/Argentina/Buenos_Aires'});
-      },
     },
     rightPriceScale: {
       borderColor:  '#21262d',
@@ -5222,6 +5220,11 @@ function initBinanceChart() {
     localization: {
       priceFormatter: p => '$' + p.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}),
     },
+  });
+
+  // Blank watermark (replaces LW Charts default)
+  _bchart.applyOptions({
+    watermark: { visible: true, color: 'rgba(255,255,255,0.04)', text: 'Trading Different · Binance', fontSize: 42, horzAlign: 'center', vertAlign: 'center' },
   });
 
   _bCandles = _bchart.addCandlestickSeries({
@@ -5297,7 +5300,7 @@ async function _bLoadKlines(tfLabel) {
   if (!_bCandles) return;
 
   try {
-    const url  = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=500`;
+    const url  = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=1000`;
     const rows = await fetch(url).then(r => r.json());
 
     const candles = rows.map(r => ({
