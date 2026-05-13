@@ -5308,6 +5308,89 @@ function initBinanceChart() {
   _bOverlay.id = 'chart-overlay';
   _bOverlay.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:6;';
   wrap.appendChild(_bOverlay);
+
+  // ── Transparent event capture layer (sits above LW Charts, controls pointer-events dynamically) ──
+  let _evLayer = document.getElementById('chart-event-layer');
+  if(_evLayer) _evLayer.remove();
+  _evLayer = document.createElement('div');
+  _evLayer.id = 'chart-event-layer';
+  _evLayer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:15;pointer-events:none;';
+  wrap.appendChild(_evLayer);
+  _evLayer.addEventListener('mousedown', _onChartMouseDown);
+  _evLayer.addEventListener('click',     _onChartClick);
+  _evLayer.addEventListener('dblclick', ev => {
+    const rect2=wrap.getBoundingClientRect();
+    const hx=ev.clientX-rect2.left, hy=ev.clientY-rect2.top;
+    const hit2=_hitTest(hx,hy);
+    if(hit2>=0&&_drawings[hit2].type==='position'){_selectedIdx=hit2;openPosModal(hit2);}
+  });
+  _evLayer.addEventListener('contextmenu', ev => {
+    ev.preventDefault();
+    if(_chartTool==='cursor'&&_selectedIdx>=0){
+      _drawings.splice(_selectedIdx,1);_selectedIdx=-1;
+      localStorage.setItem('td_drawings',JSON.stringify(_drawings));_drawOverlay();
+    }
+  });
+
+  // ── Global mouse tracker: updates hover + toggles event layer pointer-events ──
+  if(!window._chartGlobalMove){
+    window._chartGlobalMove = true;
+    document.addEventListener('mousemove', ev => {
+      if(!_bOverlay||!_bchart||!_bCandles) return;
+      const evL=document.getElementById('chart-event-layer');
+      const wrapEl=document.getElementById('binance-chart');
+      if(!evL||!wrapEl) return;
+      const rect=wrapEl.getBoundingClientRect();
+      const x=ev.clientX-rect.left, y=ev.clientY-rect.top;
+      // Update mouse state for overlay rendering
+      _toolState.mouseX=x; _toolState.mouseY=y;
+      _toolState.mousePrice=_bCandles.coordinateToPrice(y);
+      _toolState.mouseTime=_bchart.timeScale().coordinateToTime(x);
+
+      const inChart=(x>=0&&y>=0&&x<=rect.width&&y<=rect.height);
+      if(!inChart){
+        _hoverIdx=-1;
+        evL.style.pointerEvents='none';
+        wrapEl.style.cursor='default';
+        return;
+      }
+
+      // In any tool mode: always capture events
+      if(_chartTool!=='cursor'){
+        evL.style.pointerEvents='auto';
+        wrapEl.style.cursor='crosshair';
+        _drawOverlay();
+        return;
+      }
+
+      // Cursor mode: only capture when over a drawing or dragging
+      const hit=_hitTest(x,y);
+      const prevHover=_hoverIdx;
+      _hoverIdx=hit;
+
+      if(_dragActive||hit>=0||_selectedIdx>=0){
+        evL.style.pointerEvents='auto';
+        if(!_dragActive){
+          if(hit>=0){
+            const dh=_drawings[hit];
+            if(dh?.type==='position'){
+              const r=_posRole(dh,x,y);
+              wrapEl.style.cursor=
+                r==='tp'||r==='sl'||r==='entry'?'ns-resize':
+                r==='right-tp'||r==='right-sl'||r==='right-entry'||r==='left'?'ew-resize':
+                r==='body'?'move':'grab';
+            } else { wrapEl.style.cursor='grab'; }
+          } else { wrapEl.style.cursor='default'; }
+        }
+      } else {
+        evL.style.pointerEvents='none'; // pass through to LW for pan/zoom
+        wrapEl.style.cursor='default';
+      }
+
+      if(prevHover!==_hoverIdx) _drawOverlay();
+      else if(_chartTool!=='cursor') _drawOverlay();
+    });
+  }
   function _syncOverlaySize() {
     if (!_bOverlay) return;
     _bOverlay.width  = wrap.clientWidth;
@@ -5341,28 +5424,8 @@ function initBinanceChart() {
     if (_chartTool !== 'cursor') _drawOverlay();
   });
 
-  // ── Mouse events on wrap for drawing tools (capture phase = fires before LW Charts) ──
+  // ── Wrap cursor default ──
   wrap.style.cursor = 'default';
-  wrap.addEventListener('mousemove', _onChartMouseMove, {capture:true});
-  wrap.addEventListener('mousedown', _onChartMouseDown, {capture:true});
-  wrap.addEventListener('click',     _onChartClick, {capture:true});
-  wrap.addEventListener('dblclick', e => {
-    if(_chartTool!=='cursor') return;
-    const rect=wrap.getBoundingClientRect();
-    const x=e.clientX-rect.left, y=e.clientY-rect.top;
-    const hit=_hitTest(x,y);
-    if(hit>=0 && _drawings[hit].type==='position'){ _selectedIdx=hit; openPosModal(hit); }
-  });
-  wrap.addEventListener('contextmenu', e => {
-    e.preventDefault();
-    // Right-click on selected drawing → delete it
-    if(_chartTool==='cursor'&&_selectedIdx>=0){
-      _drawings.splice(_selectedIdx,1);
-      _selectedIdx=-1;
-      localStorage.setItem('td_drawings',JSON.stringify(_drawings));
-    } else { _toolState={}; }
-    _drawOverlay();
-  });
   // Delete/Escape keyboard shortcuts
   if(!window._chartKeyBound){
     window._chartKeyBound=true;
@@ -6080,10 +6143,10 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
     const pctTP=((d.tp-d.entry)/d.entry*100).toFixed(2);
     const pctSL=((d.sl-d.entry)/d.entry*100).toFixed(2);
 
-    // Zone fills
-    ctx.fillStyle=isLong?'rgba(63,185,80,0.13)':'rgba(248,81,73,0.13)';
+    // Zone fills — TP always green (profit), SL always red (loss)
+    ctx.fillStyle='rgba(63,185,80,0.15)';
     ctx.fillRect(xS,Math.min(yE,yT),xE-xS,Math.abs(yT-yE));
-    ctx.fillStyle=isLong?'rgba(248,81,73,0.13)':'rgba(63,185,80,0.13)';
+    ctx.fillStyle='rgba(248,81,73,0.15)';
     ctx.fillRect(xS,Math.min(yE,yS),xE-xS,Math.abs(yS-yE));
 
     // Lines
