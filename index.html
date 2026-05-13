@@ -5625,8 +5625,10 @@ function _hitTest(x,y){
       if(x>=Math.min(x1,x2)-4&&x<=Math.max(x1,x2)+4&&y>=Math.min(y1,y2)-4&&y<=Math.max(y1,y2)+4) return i;
     } else if(d.type==='position'){
       const yE=priceY(d.entry), yS=priceY(d.sl), yT=priceY(d.tp);
-      const xS=d.time?timeX(d.time):0;
-      const xEnd=d.timeEnd?timeX(d.timeEnd):W;
+      const rawXS2=d.time!=null?timeX(d.time):null;
+      const rawXE2=d.timeEnd!=null?timeX(d.timeEnd):null;
+      const xS=Math.max(0,rawXS2??0);
+      const xEnd=Math.min(W,rawXE2??(xS+300));
       // Check line handles (right edge circles)
       if(xEnd!==null){
         if(yE!==null&&Math.hypot(x-xEnd,y-yE)<=8) return i;
@@ -5650,8 +5652,10 @@ function _posHandleAt(d,x,y,W){
   const priceY=p=>_bCandles.priceToCoordinate(p);
   const timeX=t=>_bchart.timeScale().timeToCoordinate(t);
   const yE=priceY(d.entry),yS=priceY(d.sl),yT=priceY(d.tp);
-  const xS=d.time?timeX(d.time):0;
-  const xEnd=d.timeEnd?timeX(d.timeEnd):W;
+  const rawXSh=d.time!=null?timeX(d.time):null;
+  const rawXEh=d.timeEnd!=null?timeX(d.timeEnd):null;
+  const xS=Math.max(0,rawXSh??0);
+  const xEnd=Math.min(W,rawXEh??(xS+300));
   if(xEnd!==null){
     if(yE!==null&&Math.hypot(x-xEnd,y-yE)<=10) return 'entry-right';
     if(yS!==null&&Math.hypot(x-xEnd,y-yS)<=10) return 'sl-right';
@@ -5661,11 +5665,11 @@ function _posHandleAt(d,x,y,W){
   if(xS!==null){
     if(yE!==null&&Math.hypot(x-xS,y-yE)<=10) return 'entry-left';
   }
-  // Line body hits
+  // Line body hits — wider tolerance for easier grabbing
   const inX=xS!==null&&xEnd!==null&&x>=Math.min(xS,xEnd)-4&&x<=Math.max(xS,xEnd)+8;
-  if(inX&&yE!==null&&Math.abs(y-yE)<=6) return 'entry-line';
-  if(inX&&yS!==null&&Math.abs(y-yS)<=6) return 'sl-line';
-  if(inX&&yT!==null&&Math.abs(y-yT)<=6) return 'tp-line';
+  if(inX&&yE!==null&&Math.abs(y-yE)<=8) return 'entry-line';
+  if(inX&&yS!==null&&Math.abs(y-yS)<=8) return 'sl-line';
+  if(inX&&yT!==null&&Math.abs(y-yT)<=8) return 'tp-line';
   // Zone body → move whole position
   if(inX&&yE!==null&&yT!==null&&y>=Math.min(yE,yT)&&y<=Math.max(yE,yT)) return 'body';
   if(inX&&yE!==null&&yS!==null&&y>=Math.min(yE,yS)&&y<=Math.max(yE,yS)) return 'body';
@@ -5705,10 +5709,17 @@ function _onChartMouseDown(e){
     if(!dr) return;
     const W2=wrap.clientWidth;
 
+    // Pixel→price using ratio from two visible reference points (works off-screen)
+    function _pricePerPixel(){
+      const y1=100, y2=200;
+      const p1=_bCandles.coordinateToPrice(y1), p2=_bCandles.coordinateToPrice(y2);
+      if(p1===null||p2===null) return null;
+      return (p2-p1)/100; // negative (y↑ = price↑)
+    }
     function coordToPrice(basePrice,deltaY){
-      const by=_bCandles.priceToCoordinate(basePrice);
-      if(by===null) return basePrice;
-      return _bCandles.coordinateToPrice(by+deltaY)||basePrice;
+      const ppp=_pricePerPixel();
+      if(ppp===null) return basePrice;
+      return basePrice + ppp*deltaY;
     }
     function shiftTime(t,deltaX){
       if(!t) return t;
@@ -5733,9 +5744,11 @@ function _onChartMouseDown(e){
       } else if(role==='tp-line'||role==='tp-right'){
         dr.tp=coordToPrice(orig.tp,dy);
       } else if(role==='entry-right'){
-        // Dragging entry-right handle → move timeEnd X
-        const newXEnd=(orig.timeEnd?(_bchart.timeScale().timeToCoordinate(orig.timeEnd)||W2):W2)+dx;
-        dr.timeEnd=coordToTime(Math.max(orig.time?(_bchart.timeScale().timeToCoordinate(orig.time)||0):0, newXEnd));
+        const origTE=orig.timeEnd?_bchart.timeScale().timeToCoordinate(orig.timeEnd):null;
+        const origTS=orig.time?_bchart.timeScale().timeToCoordinate(orig.time):0;
+        const baseXE=origTE??((origTS||0)+300);
+        const newXEnd=Math.max((origTS||0)+40, baseXE+dx);
+        dr.timeEnd=coordToTime(newXEnd);
       } else {
         // body → move whole position (price + time)
         const pDelta=coordToPrice(orig.entry,dy)-orig.entry;
@@ -5755,7 +5768,7 @@ function _onChartMouseDown(e){
   }
   function onUp(){
     _dragActive=false; _dragStart=null;
-    wrap.style.cursor=_hoverIdx>=0?'grab':'default';
+    wrap.style.cursor=_hoverIdx>=0?'move':'default';
     localStorage.setItem('td_drawings',JSON.stringify(_drawings));
     document.removeEventListener('mousemove',onMove);
     document.removeEventListener('mouseup',onUp);
@@ -5782,7 +5795,10 @@ function _onChartMouseMove(e) {
         const dh=_drawings[hit];
         if(dh&&dh.type==='position'){
           const role=_posHandleAt(dh,x,y,wrap.clientWidth);
-          cur=role&&role.includes('line')?'ns-resize':role&&role.includes('right')?'ew-resize':role==='body'?'grab':'grab';
+          if(role==='entry-line'||role==='sl-line'||role==='tp-line') cur='ns-resize';
+          else if(role==='entry-right'||role==='sl-right'||role==='tp-right') cur='ew-resize';
+          else if(role==='entry-left') cur='ew-resize';
+          else cur='move';
         } else { cur='grab'; }
       }
       wrap.style.cursor=cur;
@@ -5852,11 +5868,16 @@ function _onChartClick(e) {
     else {
       const entry=_toolState.p1.price, side=_chartTool, isLong=side==='long';
       const diff=Math.abs(price-entry);
-      // timeEnd = visible right edge time
-      let timeEnd=null;
-      try{ const lr=_bchart.timeScale().getVisibleRange(); if(lr)timeEnd=lr.to; }catch(e){}
-      _drawings.push({type:'position',side,entry,sl:isLong?entry-diff:entry+diff,tp:isLong?entry+diff*2:entry-diff*2,time:_toolState.p1.time,timeEnd});
-      localStorage.setItem('td_drawings',JSON.stringify(_drawings)); _toolState={}; _drawOverlay();
+      // Left anchor = first click time; right anchor = second click time (horizontal extent)
+      const t1=_toolState.p1.time, t2=time;
+      const timeStart=t1&&t2?(Math.min(t1,t2)===t1?t1:t2):t1||t2;
+      const timeEnd=t1&&t2?(Math.max(t1,t2)===t2?t2:t1):null;
+      _drawings.push({type:'position',side,entry,sl:isLong?entry-diff:entry+diff,tp:isLong?entry+diff*2:entry-diff*2,time:timeStart,timeEnd});
+      localStorage.setItem('td_drawings',JSON.stringify(_drawings));
+      _toolState={};
+      _selectedIdx=_drawings.length-1; // auto-select the new position
+      setChartTool('cursor');           // switch to cursor so no new positions are created
+      _drawOverlay();
     }
     return;
   }
@@ -5997,10 +6018,12 @@ function _getDrawingBounds(d,priceY,timeX,W,H){
     }
     if(d.type==='position'){
       const yE=priceY(d.entry),yT=priceY(d.tp),yS=priceY(d.sl);
-      const xS=d.time?timeX(d.time):0;
-      const xEnd=d.timeEnd?timeX(d.timeEnd):W;
+      const rawXSb=d.time!=null?timeX(d.time):null;
+      const rawXEb=d.timeEnd!=null?timeX(d.timeEnd):null;
+      const xS=Math.max(0,rawXSb??0);
+      const xEnd=Math.min(W,rawXEb??(xS+300));
       if(yE===null) return null;
-      return{x1:xS,x2:xEnd??W,y1:Math.min(yE,yT??yE,yS??yE),y2:Math.max(yE,yT??yE,yS??yE)};
+      return{x1:xS,x2:xEnd,y1:Math.min(yE,yT??yE,yS??yE),y2:Math.max(yE,yT??yE,yS??yE)};
     }
   }catch(e){}
   return null;
@@ -6058,8 +6081,13 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected=false){
     const isLong=d.side==='long';
     const yE=priceY(d.entry), ySL=priceY(d.sl), yTP=priceY(d.tp);
     if(yE===null||ySL===null||yTP===null) return;
-    const xS=Math.max(0, d.time?timeX(d.time):0);
-    const xE=d.timeEnd?Math.min(W+60,timeX(d.timeEnd)):W;
+    // Clamp to canvas — never extend to 0 or W unless explicitly anchored there
+    const rawXS=d.time!=null?timeX(d.time):null;
+    const rawXE=d.timeEnd!=null?timeX(d.timeEnd):null;
+    if(rawXS===null&&rawXE===null) return; // no anchor, skip
+    const xS=Math.max(0, rawXS??0);
+    const xE=Math.min(W, rawXE??Math.min(W, (rawXS??0)+300));
+    if(xE<=xS) return;
     const risk=Math.abs(d.entry-d.sl), reward=Math.abs(d.tp-d.entry);
     const rr=(risk>0?reward/risk:0).toFixed(2);
     const pctSL=((d.sl-d.entry)/d.entry*100).toFixed(2);
