@@ -5377,7 +5377,7 @@ function initBinanceChart() {
               const r=_posRole(dh,x,y);
               wrapEl.style.cursor=
                 r==='tp'||r==='sl'||r==='entry'?'ns-resize':
-                r==='right-tp'||r==='right-sl'||r==='right-entry'||r==='left'?'ew-resize':
+                r==='left'?'ew-resize':
                 r==='body'?'move':'grab';
             } else { wrapEl.style.cursor='grab'; }
           } else { wrapEl.style.cursor='default'; }
@@ -5664,13 +5664,38 @@ function clearDrawings(){
   _selectedIdx=-1; _toolState={}; _drawOverlay();
 }
 
-// ── Price-per-pixel ratio (stable, calculated fresh) ──
+// ── Price-per-pixel ratio ──
 function _pricePerPixel(){
   if(!_bCandles) return null;
   const p1=_bCandles.coordinateToPrice(100), p2=_bCandles.coordinateToPrice(200);
   if(p1==null||p2==null) return null;
-  return (p2-p1)/100; // negative: y increases downward, price increases upward
+  return (p2-p1)/100; // negative: screen-y down = price down
 }
+
+// ── Safe coordinateToTime — extrapolates past last bar ──
+function _coordToTimeSafe(x){
+  if(!_bchart) return null;
+  const t=_bchart.timeScale().coordinateToTime(x);
+  if(t!=null) return t;
+  // Extrapolate using last two bars
+  const n=_bCandleData.length;
+  if(n<2) return null;
+  const last=_bCandleData[n-1], prev=_bCandleData[n-2];
+  const interval=last.time-prev.time; // seconds per bar
+  const lastX=_bchart.timeScale().timeToCoordinate(last.time);
+  if(lastX==null||interval<=0) return null;
+  // Estimate pixels per bar
+  let pxPerBar=interval; // fallback
+  if(n>=2){
+    const prevX=_bchart.timeScale().timeToCoordinate(prev.time);
+    if(prevX!=null&&prevX!==lastX) pxPerBar=lastX-prevX;
+  }
+  const extraBars=(x-lastX)/pxPerBar;
+  return Math.round(last.time+extraBars*interval);
+}
+
+// ── Position right edge = chart right boundary ──
+function _posXE(W){ return W-68; } // leave room for price axis
 
 // ── Hit test: returns drawing index or -1 ──
 function _hitTest(x,y){
@@ -5701,22 +5726,17 @@ function _hitTest(x,y){
       const yE=_bCandles.priceToCoordinate(d.entry);
       const yT=_bCandles.priceToCoordinate(d.tp);
       const yS=_bCandles.priceToCoordinate(d.sl);
-      const rawXS=d.time!=null?_bchart.timeScale().timeToCoordinate(d.time):null;
-      const rawXE=d.timeEnd!=null?_bchart.timeScale().timeToCoordinate(d.timeEnd):null;
-      const xS=Math.max(0,rawXS??0);
-      const xE=Math.min(W-2,rawXE??(Math.min(W-2,xS+300)));
+      const rawXS=d.time!=null?_bchart.timeScale().timeToCoordinate(d.time):0;
+      const xS=rawXS??-9999; // may be off-screen left
+      const xE=_posXE(W);
       const inX=x>=xS-4&&x<=xE+12;
-      // Right handles first (smallest target)
-      if(yT!=null&&Math.hypot(x-xE,y-yT)<=10) return i;
-      if(yE!=null&&Math.hypot(x-xE,y-yE)<=10) return i;
-      if(yS!=null&&Math.hypot(x-xE,y-yS)<=10) return i;
-      // Lines
-      if(inX&&yT!=null&&Math.abs(y-yT)<=10) return i;
-      if(inX&&yE!=null&&Math.abs(y-yE)<=10) return i;
-      if(inX&&yS!=null&&Math.abs(y-yS)<=10) return i;
-      // Zone fills
+      if(yT!=null&&Math.abs(y-yT)<=10&&inX) return i;
+      if(yE!=null&&Math.abs(y-yE)<=10&&inX) return i;
+      if(yS!=null&&Math.abs(y-yS)<=10&&inX) return i;
       if(inX&&yE!=null&&yT!=null&&y>Math.min(yE,yT)&&y<Math.max(yE,yT)) return i;
       if(inX&&yE!=null&&yS!=null&&y>Math.min(yE,yS)&&y<Math.max(yE,yS)) return i;
+      // Left anchor handle
+      if(yE!=null&&rawXS!=null&&Math.hypot(x-rawXS,y-yE)<=10) return i;
     }
   }
   return -1;
@@ -5729,20 +5749,17 @@ function _posRole(d,x,y){
   const yE=_bCandles.priceToCoordinate(d.entry);
   const yT=_bCandles.priceToCoordinate(d.tp);
   const yS=_bCandles.priceToCoordinate(d.sl);
-  const rawXS=d.time!=null?_bchart.timeScale().timeToCoordinate(d.time):null;
-  const rawXE=d.timeEnd!=null?_bchart.timeScale().timeToCoordinate(d.timeEnd):null;
-  const xS=Math.max(0,rawXS??0);
-  const xE=Math.min(W-2,rawXE??(Math.min(W-2,xS+300)));
-  // Right handles
-  if(yT!=null&&Math.hypot(x-xE,y-yT)<=10) return 'right-tp';
-  if(yE!=null&&Math.hypot(x-xE,y-yE)<=10) return 'right-entry';
-  if(yS!=null&&Math.hypot(x-xE,y-yS)<=10) return 'right-sl';
-  // Left anchor
-  if(yE!=null&&Math.hypot(x-xS,y-yE)<=10) return 'left';
+  const rawXS=d.time!=null?_bchart.timeScale().timeToCoordinate(d.time):0;
+  const xS=rawXS??0;
+  const xE=_posXE(W);
   const inX=x>=xS-4&&x<=xE+10;
+  // Left anchor (move whole position)
+  if(yE!=null&&Math.hypot(x-xS,y-yE)<=10) return 'left';
+  // TP / SL / Entry lines — drag vertically
   if(inX&&yT!=null&&Math.abs(y-yT)<=10) return 'tp';
   if(inX&&yE!=null&&Math.abs(y-yE)<=10) return 'entry';
   if(inX&&yS!=null&&Math.abs(y-yS)<=10) return 'sl';
+  // Zone bodies — drag whole position
   if(inX&&yE!=null&&yT!=null&&y>Math.min(yE,yT)&&y<Math.max(yE,yT)) return 'body';
   if(inX&&yE!=null&&yS!=null&&y>Math.min(yE,yS)&&y<Math.max(yE,yS)) return 'body';
   return null;
@@ -5784,20 +5801,19 @@ function _onChartMouseDown(e){
       const tp=isLong?Math.max(entryP,target):Math.min(entryP,target);
       const sl=isLong?entryP-(tp-entryP):entryP+(entryP-tp);
       const endT=_bchart.timeScale().coordinateToTime(cx)||entryT;
-      _toolState._prev={type:'position',side,entry:entryP,tp,sl,time:entryT,timeEnd:endT};
+      _toolState._prev={type:'position',side,entry:entryP,tp,sl,time:entryT};
       _drawOverlay();
     }
     function onUp(ev){
       document.removeEventListener('mousemove',onMove,true);
       document.removeEventListener('mouseup',onUp,true);
       _toolState._prev=null;
-      const dy=ev.clientY-rect.top-my, cx=ev.clientX-rect.left;
+      const dy=ev.clientY-rect.top-my;
       if(Math.abs(dy)<6){_drawOverlay();return;}
       const dp=dy*ppp, target=entryP+dp;
       const tp=isLong?Math.max(entryP,target):Math.min(entryP,target);
       const sl=isLong?entryP-(tp-entryP):entryP+(entryP-tp);
-      const endT=_bchart.timeScale().coordinateToTime(cx)||entryT;
-      _drawings.push({type:'position',side,entry:entryP,tp,sl,time:entryT,timeEnd:endT});
+      _drawings.push({type:'position',side,entry:entryP,tp,sl,time:entryT});
       localStorage.setItem('td_drawings',JSON.stringify(_drawings));
       _selectedIdx=_drawings.length-1;
       _suppressNextClick=true;
@@ -5847,22 +5863,24 @@ function _onChartMouseDown(e){
 
     } else if(dr.type==='position'){
       const r=_dragStart.role;
-      if(r==='tp'||r==='right-tp'){
+      if(r==='tp'){
         dr.tp=pxToPrice(orig.tp,dy);
-      } else if(r==='sl'||r==='right-sl'){
+      } else if(r==='sl'){
         dr.sl=pxToPrice(orig.sl,dy);
-      } else if(r==='entry'||r==='right-entry'){
+      } else if(r==='entry'){
         dr.entry=pxToPrice(orig.entry,dy);
-      } else if(r==='left'){
-        dr.time=shiftTime(orig.time,dx);
-        dr.entry=pxToPrice(orig.entry,dy);
-      } else { // body → move whole position
+      } else if(r==='left'||r==='body'){ // move whole position freely
         const pD=pxToPrice(orig.entry,dy)-orig.entry;
         dr.entry=orig.entry+pD;
         dr.sl=orig.sl+pD;
         dr.tp=orig.tp+pD;
-        dr.time=shiftTime(orig.time,dx);
-        if(orig.timeEnd) dr.timeEnd=shiftTime(orig.timeEnd,dx);
+        // Move horizontally: get original xS and shift by dx
+        const origXS=orig.time!=null?_bchart.timeScale().timeToCoordinate(orig.time):null;
+        if(origXS!=null){
+          const newXS=origXS+dx;
+          const newTime=_coordToTimeSafe(newXS);
+          if(newTime!=null) dr.time=newTime;
+        }
       }
       // Sync modal if open
       const modal=document.getElementById('pos-edit-modal');
@@ -5908,7 +5926,7 @@ function _onChartMouseMove(e){
         if(dh?.type==='position'){
           const r=_posRole(dh,x,y);
           cur=r==='tp'||r==='sl'||r==='entry'?'ns-resize':
-              r==='right-tp'||r==='right-sl'||r==='right-entry'||r==='left'?'ew-resize':
+              r==='left'?'ew-resize':
               r==='body'?'move':'grab';
         } else cur='grab';
       }
@@ -6038,9 +6056,7 @@ function _drawOverlay(){
         bx2=Math.min(W-10,x2+60);
         by1=Math.min(priceY(d.p1.price)??0,priceY(d.p2.price)??0)-4;
       } else if(d.type==='position'){
-        const rawXE=d.timeEnd?timeX(d.timeEnd):null;
-        const rawXS=d.time?timeX(d.time):null;
-        bx2=Math.min(W-2,rawXE??(Math.min(W-2,(rawXS??0)+300)));
+        bx2=_posXE(W)-2;
         by1=Math.min(priceY(d.tp)??0,priceY(d.entry)??0,priceY(d.sl)??0)-4;
       }
       // × delete
@@ -6134,10 +6150,8 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
     const yE=priceY(d.entry), yT=priceY(d.tp), yS=priceY(d.sl);
     if(yE==null||yT==null||yS==null) return;
     const rawXS=d.time!=null?timeX(d.time):null;
-    const rawXE=d.timeEnd!=null?timeX(d.timeEnd):null;
-    const xS=Math.max(0,rawXS??0);
-    const xE=Math.min(W-2,rawXE??(Math.min(W-2,xS+300)));
-    if(xE<=xS) return;
+    const xS=rawXS!=null?Math.max(-200,rawXS):0; // allow starting off-screen left
+    const xE=_posXE(W); // always extends to chart right boundary
     const risk=Math.abs(d.entry-d.sl), reward=Math.abs(d.tp-d.entry);
     const rr=risk>0?(reward/risk).toFixed(2):'∞';
     const pctTP=((d.tp-d.entry)/d.entry*100).toFixed(2);
@@ -6185,10 +6199,7 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
         ctx.fillStyle=col; ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
         ctx.beginPath(); ctx.arc(hx,hy,6,0,Math.PI*2); ctx.fill(); ctx.stroke();
       }
-      h(xS,yE,'#e3b341');   // left entry anchor
-      h(xE,yE,'#e3b341');   // right entry / timeEnd
-      h(xE,yT,'#3fb950');   // right TP drag
-      h(xE,yS,'#f85149');   // right SL drag
+      h(xS,yE,'#e3b341');   // left entry anchor (drag to move)
     }
   }
 }
@@ -6790,47 +6801,4 @@ async function runBacktestAllTF() {
     <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
       <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">EXPORTAR POOLS</div>
       <button onclick="exportPineScript();closeStudiesModal()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:rgba(168,255,62,0.1);color:var(--green);font-size:11px;cursor:pointer">📋 Copiar Pine Script de pools</button>
-    </div>
-
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-secondary" onclick="closeStudiesModal()">Cerrar</button>
-      <button class="btn btn-primary" onclick="_saveIndCfg();closeStudiesModal()">💾 Aplicar</button>
-    </div>
-  </div>
-</div>
-
-<!-- POSITION EDIT MODAL -->
-<div class="modal-overlay" id="pos-edit-modal">
-  <div class="modal" style="max-width:380px;width:96vw">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <h3 style="margin:0" id="pos-modal-title">✏️ Editar Posición</h3>
-      <button onclick="closePosModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
-        ENTRADA (Entry)
-        <input id="pos-entry" type="number" step="1"
-          style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:14px;font-family:monospace">
-      </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#f85149">
-        STOP LOSS
-        <input id="pos-sl" type="number" step="1"
-          style="background:var(--surface-2);border:1px solid rgba(248,81,73,0.4);border-radius:6px;padding:8px 10px;color:#f85149;font-size:14px;font-family:monospace">
-      </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#3fb950">
-        TAKE PROFIT
-        <input id="pos-tp" type="number" step="1"
-          style="background:var(--surface-2);border:1px solid rgba(63,185,80,0.4);border-radius:6px;padding:8px 10px;color:#3fb950;font-size:14px;font-family:monospace">
-      </label>
-      <!-- Live R:R display -->
-      <div id="pos-rr-display" style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px;font-family:monospace;display:flex;gap:16px;flex-wrap:wrap"></div>
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
-      <button class="btn btn-secondary" onclick="closePosModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="savePosModal()">💾 Guardar</button>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
+  
