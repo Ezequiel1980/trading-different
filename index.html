@@ -5351,6 +5351,13 @@ function initBinanceChart() {
   wrap.addEventListener('mousemove', _onChartMouseMove);
   wrap.addEventListener('mousedown', _onChartMouseDown);
   wrap.addEventListener('click',     _onChartClick);
+  wrap.addEventListener('dblclick', e => {
+    if(_chartTool!=='cursor') return;
+    const rect=wrap.getBoundingClientRect();
+    const x=e.clientX-rect.left, y=e.clientY-rect.top;
+    const hit=_hitTest(x,y);
+    if(hit>=0 && _drawings[hit].type==='position'){ _selectedIdx=hit; openPosModal(hit); }
+  });
   wrap.addEventListener('contextmenu', e => {
     e.preventDefault();
     // Right-click on selected drawing → delete it
@@ -5713,6 +5720,14 @@ function _onChartClick(e) {
       _drawOverlay(); return;
     }
   }
+  // Check edit button click (position drawings)
+  if(window._editBtn){
+    const wrap=document.getElementById('binance-chart');
+    const rect2=wrap?wrap.getBoundingClientRect():{left:0,top:0};
+    const cx=e.clientX-rect2.left, cy=e.clientY-rect2.top;
+    const eb=window._editBtn;
+    if(Math.hypot(cx-eb.x,cy-eb.y)<=eb.r+4){ openPosModal(eb.idx); return; }
+  }
   const wrap=document.getElementById('binance-chart');
   if(!wrap) return;
   const rect=wrap.getBoundingClientRect();
@@ -5842,6 +5857,16 @@ function _drawOverlay() {
         ctx.textAlign='left'; ctx.textBaseline='alphabetic';
         // Store delete button coords for click detection
         window._deleteBtn={x:bx2+8,y:by2-8,r:8,idx:i};
+        // Show edit pencil button for positions
+        if(d.type==='position'){
+          const ex=bx2+24, ey=by2-8;
+          ctx.fillStyle='#e3b341'; ctx.strokeStyle='#0d1117'; ctx.lineWidth=1;
+          ctx.beginPath(); ctx.arc(ex,ey,8,0,Math.PI*2); ctx.fill(); ctx.stroke();
+          ctx.fillStyle='#0d1117'; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText('✏',ex,ey);
+          ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+          window._editBtn={x:ex,y:ey,r:8,idx:i};
+        } else { window._editBtn=null; }
       }
     }
   });
@@ -6064,6 +6089,54 @@ function openStudiesModal() {
 
 function closeStudiesModal() {
   document.getElementById('studies-modal').classList.remove('open');
+}
+
+// ── Position Edit Modal ──
+let _editingPosIdx = -1;
+function openPosModal(idx) {
+  if(idx<0||idx>=_drawings.length) return;
+  const d=_drawings[idx];
+  if(d.type!=='position') return;
+  _editingPosIdx=idx;
+  const isLong=d.side==='long';
+  document.getElementById('pos-modal-title').textContent=(isLong?'📈 Editar Long':'📉 Editar Short');
+  document.getElementById('pos-entry').value=Math.round(d.entry);
+  document.getElementById('pos-sl').value=Math.round(d.sl);
+  document.getElementById('pos-tp').value=Math.round(d.tp);
+  _updatePosRR();
+  ['pos-entry','pos-sl','pos-tp'].forEach(id=>document.getElementById(id).addEventListener('input',_updatePosRR));
+  document.getElementById('pos-edit-modal').classList.add('open');
+}
+function closePosModal() {
+  document.getElementById('pos-edit-modal').classList.remove('open');
+  _editingPosIdx=-1;
+}
+function _updatePosRR() {
+  const entry=parseFloat(document.getElementById('pos-entry').value)||0;
+  const sl=parseFloat(document.getElementById('pos-sl').value)||0;
+  const tp=parseFloat(document.getElementById('pos-tp').value)||0;
+  if(!entry||!sl||!tp) { document.getElementById('pos-rr-display').innerHTML=''; return; }
+  const risk=Math.abs(entry-sl);
+  const reward=Math.abs(tp-entry);
+  const rr=risk>0?(reward/risk).toFixed(2):'∞';
+  const pctSL=((sl-entry)/entry*100).toFixed(2);
+  const pctTP=((tp-entry)/entry*100).toFixed(2);
+  const colRR=parseFloat(rr)>=1.5?'#3fb950':parseFloat(rr)>=1?'#e3b341':'#f85149';
+  document.getElementById('pos-rr-display').innerHTML=
+    `<span style="color:#f85149">SL ${pctSL}%</span>`+
+    `<span style="color:#3fb950">TP +${pctTP}%</span>`+
+    `<span style="color:${colRR};font-weight:700">R:R ${rr}</span>`+
+    `<span style="color:var(--muted)">Riesgo $${Math.round(risk).toLocaleString()}</span>`;
+}
+function savePosModal() {
+  if(_editingPosIdx<0||_editingPosIdx>=_drawings.length) { closePosModal(); return; }
+  const d=_drawings[_editingPosIdx];
+  d.entry=parseFloat(document.getElementById('pos-entry').value)||d.entry;
+  d.sl=parseFloat(document.getElementById('pos-sl').value)||d.sl;
+  d.tp=parseFloat(document.getElementById('pos-tp').value)||d.tp;
+  localStorage.setItem('td_drawings',JSON.stringify(_drawings));
+  _drawOverlay();
+  closePosModal();
 }
 
 function _saveIndCfg() {
@@ -6584,6 +6657,39 @@ async function runBacktestAllTF() {
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-secondary" onclick="closeStudiesModal()">Cerrar</button>
       <button class="btn btn-primary" onclick="_saveIndCfg();closeStudiesModal()">💾 Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- POSITION EDIT MODAL -->
+<div class="modal-overlay" id="pos-edit-modal" onclick="if(event.target===this)closePosModal()">
+  <div class="modal" style="max-width:380px;width:96vw">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="margin:0" id="pos-modal-title">✏️ Editar Posición</h3>
+      <button onclick="closePosModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
+        ENTRADA (Entry)
+        <input id="pos-entry" type="number" step="1"
+          style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:14px;font-family:monospace">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#f85149">
+        STOP LOSS
+        <input id="pos-sl" type="number" step="1"
+          style="background:var(--surface-2);border:1px solid rgba(248,81,73,0.4);border-radius:6px;padding:8px 10px;color:#f85149;font-size:14px;font-family:monospace">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#3fb950">
+        TAKE PROFIT
+        <input id="pos-tp" type="number" step="1"
+          style="background:var(--surface-2);border:1px solid rgba(63,185,80,0.4);border-radius:6px;padding:8px 10px;color:#3fb950;font-size:14px;font-family:monospace">
+      </label>
+      <!-- Live R:R display -->
+      <div id="pos-rr-display" style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px;font-family:monospace;display:flex;gap:16px;flex-wrap:wrap"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+      <button class="btn btn-secondary" onclick="closePosModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePosModal()">💾 Guardar</button>
     </div>
   </div>
 </div>
