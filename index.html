@@ -1356,6 +1356,13 @@ body:has(#bottom-panel.open) .app-layout {
   .chart-tf-btn:hover { color:var(--text); border-color:#58a6ff55; }
   .chart-tf-btn.active { background:rgba(31,111,235,0.15); border-color:#1f6feb; color:#58a6ff; font-weight:700; }
   #binance-chart canvas { display:block; }
+  #vol-chart canvas { display:block; }
+  .ctool-btn { width:28px;height:28px;border-radius:5px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;flex-shrink:0; }
+  .ctool-btn:hover { color:var(--text);border-color:#58a6ff55; }
+  .ctool-btn.active { background:rgba(31,111,235,0.2);border-color:#1f6feb;color:#58a6ff; }
+  #vol-resize-handle { height:5px;background:var(--border);cursor:row-resize;flex-shrink:0;transition:background .15s; }
+  #vol-resize-handle:hover { background:#58a6ff55; }
+  #chart-overlay { position:absolute;top:0;left:0;pointer-events:none;z-index:6; }
   /* Hide LightweightCharts attribution (MIT library branding) */
   #binance-chart a[href*="tradingview"], #binance-chart a[href*="lightweight"] { display:none !important; }
   </style>
@@ -1461,8 +1468,27 @@ body:has(#bottom-panel.open) .app-layout {
           <button class="chart-tf-btn" onclick="clearUserLines()" title="Borrar líneas dibujadas">🗑</button>
           <span id="chart-symbol-label" style="font-size:10px;color:var(--muted);font-family:var(--font-mono)">BTC/USDT · Binance</span>
         </div>
-        <!-- Canvas chart -->
-        <div id="binance-chart" style="flex:1;min-height:0;width:100%;position:relative;overflow:hidden"></div>
+        <!-- Chart area wrapper -->
+        <div style="flex:1;min-height:0;display:flex;overflow:hidden;position:relative">
+          <!-- Left toolbar -->
+          <div id="chart-toolbar-left" style="display:flex;flex-direction:column;gap:3px;padding:6px 4px;background:var(--surface-1);border-right:1px solid var(--border);flex-shrink:0;z-index:10">
+            <button class="ctool-btn active" id="ctool-cursor" onclick="setChartTool('cursor')" title="Cursor">↖</button>
+            <button class="ctool-btn" id="ctool-hline"  onclick="setChartTool('hline')"  title="Línea horizontal">—</button>
+            <button class="ctool-btn" id="ctool-fib"    onclick="setChartTool('fib')"    title="Fibonacci Retracement">𝑓</button>
+            <button class="ctool-btn" id="ctool-measure" onclick="setChartTool('measure')" title="Medir">📏</button>
+            <div style="height:1px;background:var(--border);margin:2px 0"></div>
+            <button class="ctool-btn" id="ctool-long"   onclick="setChartTool('long')"   title="Posición Long">📈</button>
+            <button class="ctool-btn" id="ctool-short"  onclick="setChartTool('short')"  title="Posición Short">📉</button>
+            <div style="height:1px;background:var(--border);margin:2px 0"></div>
+            <button class="ctool-btn" id="ctool-clear" onclick="clearDrawings()" title="Borrar dibujos">🗑</button>
+          </div>
+          <!-- Main chart canvas -->
+          <div id="binance-chart" style="flex:1;min-height:0;position:relative;overflow:hidden"></div>
+        </div>
+        <!-- Volume resize handle -->
+        <div id="vol-resize-handle"></div>
+        <!-- Volume panel -->
+        <div id="vol-chart" style="height:90px;min-height:40px;flex-shrink:0;position:relative;overflow:hidden"></div>
       </div>
 
       <!-- ── PANEL: ANÁLISIS ── -->
@@ -5178,9 +5204,15 @@ let _bCandleData = []; // candle store for indicators + overlays
 let _bchart    = null;  // LW chart instance
 let _bCandles  = null;  // candlestick series
 let _bVolume   = null;  // volume histogram series
+let _bVolChart = null;  // separate volume chart
 let _bChartTF  = '15m'; // active TF label
 let _bWS       = null;  // live WebSocket
 let _bResizeOb = null;  // ResizeObserver
+let _bOverlay  = null;  // canvas overlay for drawings
+let _chartTool = 'cursor'; // active tool
+let _drawings  = JSON.parse(localStorage.getItem('td_drawings')||'[]'); // persisted drawings
+let _toolState = {}; // tool interaction state (anchors, preview)
+let _currentCross = null; // current crosshair price+time
 
 function initBinanceChart() {
   const wrap = document.getElementById('binance-chart');
@@ -5189,10 +5221,12 @@ function initBinanceChart() {
 
   // Cleanup previous instance
   if (_bchart)    { try { _bchart.remove(); } catch(e){} _bchart = null; }
+  if (_bVolChart) { try { _bVolChart.remove(); } catch(e){} _bVolChart = null; }
   if (_bWS)       { _bWS.close(); _bWS = null; }
   if (_bResizeOb) { _bResizeOb.disconnect(); _bResizeOb = null; }
   wrap.innerHTML = '';
 
+  // ── Main chart ──
   _bchart = LightweightCharts.createChart(wrap, {
     width:  wrap.clientWidth  || 800,
     height: wrap.clientHeight || 500,
@@ -5219,14 +5253,13 @@ function initBinanceChart() {
     },
     rightPriceScale: {
       borderColor:  '#21262d',
-      scaleMargins: { top: 0.06, bottom: 0.22 },
+      scaleMargins: { top: 0.06, bottom: 0.04 },
     },
     localization: {
       priceFormatter: p => '$' + p.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}),
     },
   });
 
-  // Blank watermark (replaces LW Charts default)
   _bchart.applyOptions({
     watermark: { visible: true, color: 'rgba(255,255,255,0.04)', text: 'Trading Different · Binance', fontSize: 42, horzAlign: 'center', vertAlign: 'center' },
   });
@@ -5240,31 +5273,59 @@ function initBinanceChart() {
     wickDownColor:   '#f85149',
   });
 
-  _bVolume = _bchart.addHistogramSeries({
-    priceFormat:  { type: 'volume' },
-    priceScaleId: 'vol',
-  });
-  _bchart.priceScale('vol').applyOptions({
-    scaleMargins: { top: 0.8, bottom: 0 },
-  });
+  // ── Separate Volume chart ──
+  const volWrap = document.getElementById('vol-chart');
+  if (volWrap) {
+    volWrap.innerHTML = '';
+    _bVolChart = LightweightCharts.createChart(volWrap, {
+      width:  volWrap.clientWidth  || 800,
+      height: volWrap.clientHeight || 90,
+      layout: { background: { type:'solid', color:'#0d1117' }, textColor:'#8b949e', fontSize:9 },
+      grid: { vertLines:{visible:false}, horzLines:{visible:false} },
+      crosshair: { vertLine:{visible:true,color:'rgba(88,166,255,0.3)'}, horzLine:{visible:false} },
+      timeScale: { visible:false, borderColor:'#21262d', rightOffset:8 },
+      rightPriceScale: { borderColor:'#21262d', scaleMargins:{top:0.1,bottom:0.02} },
+      handleScroll: false,
+      handleScale:  false,
+    });
+    _bVolume = _bVolChart.addHistogramSeries({
+      priceFormat: { type:'volume' },
+      priceScaleId: 'right',
+    });
+    // Sync time scale: main → vol + redraw overlay
+    _bchart.timeScale().subscribeVisibleLogicalRangeChange(lr => {
+      if (lr && _bVolChart) _bVolChart.timeScale().setVisibleLogicalRange(lr);
+      _drawOverlay();
+    });
+    // Resize vol chart
+    new ResizeObserver(() => {
+      if (_bVolChart && volWrap.clientWidth && volWrap.clientHeight)
+        _bVolChart.applyOptions({ width: volWrap.clientWidth, height: volWrap.clientHeight });
+    }).observe(volWrap);
+  }
+
+  // ── Canvas overlay for drawings ──
+  _bOverlay = document.createElement('canvas');
+  _bOverlay.id = 'chart-overlay';
+  _bOverlay.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:6;';
+  wrap.appendChild(_bOverlay);
+  function _syncOverlaySize() {
+    if (!_bOverlay) return;
+    _bOverlay.width  = wrap.clientWidth;
+    _bOverlay.height = wrap.clientHeight;
+    _drawOverlay();
+  }
 
   // ── OHLCV floating tooltip ──
   const tip = document.createElement('div');
   tip.id = 'chart-ohlcv-tip';
-  tip.style.cssText = [
-    'position:absolute','top:8px','left:8px','z-index:20',
-    'font-family:monospace','font-size:10px','line-height:1.7',
-    'color:#cdd9e5','pointer-events:none',
-    'background:rgba(13,17,23,0.88)','padding:5px 10px',
-    'border-radius:6px','border:1px solid #21262d',
-    'white-space:nowrap','display:none'
-  ].join(';');
+  tip.style.cssText = 'position:absolute;top:8px;left:8px;z-index:20;font-family:monospace;font-size:10px;line-height:1.7;color:#cdd9e5;pointer-events:none;background:rgba(13,17,23,0.88);padding:5px 10px;border-radius:6px;border:1px solid #21262d;white-space:nowrap;display:none';
   wrap.appendChild(tip);
 
   _bchart.subscribeCrosshairMove(param => {
+    _currentCross = param && param.point ? param : null;
     if (!param || !param.time || !param.seriesData) { tip.style.display='none'; return; }
     const c = param.seriesData.get(_bCandles);
-    const v = param.seriesData.get(_bVolume);
     if (!c) { tip.style.display='none'; return; }
     const pct  = ((c.close - c.open) / c.open * 100).toFixed(2);
     const col  = c.close >= c.open ? '#3fb950' : '#f85149';
@@ -5277,26 +5338,49 @@ function initBinanceChart() {
       `H:<span style="color:#3fb950">${fmt(c.high)}</span>  ` +
       `L:<span style="color:#f85149">${fmt(c.low)}</span>  ` +
       `C:<span style="color:${col};font-weight:700">${fmt(c.close)}</span>  ` +
-      `<span style="color:${col}">${sign}${pct}%</span>` +
-      (v ? `  <span style="color:#6e7681">Vol:${(v.value/1e3).toFixed(1)}K</span>` : '');
+      `<span style="color:${col}">${sign}${pct}%</span>`;
+    if (_chartTool !== 'cursor') _drawOverlay();
   });
 
-  // Click to draw user lines
-  _bchart.subscribeClick(param=>{
-    if(!_drawMode||!param.point||!_bCandles)return;
-    const price=_bCandles.coordinateToPrice(param.point.y);
-    if(!price||price<=0)return;
-    _userLines.push({price:Math.round(price),color:'#58a6ff',label:''});
-    _saveUserLines();_renderUserLines();
-  });
+  // ── Mouse events on wrap for drawing tools ──
+  wrap.style.cursor = 'default';
+  wrap.addEventListener('mousemove', _onChartMouseMove);
+  wrap.addEventListener('click',     _onChartClick);
+  wrap.addEventListener('contextmenu', e => { e.preventDefault(); _toolState={}; _drawOverlay(); });
 
   // ── ResizeObserver ──
   _bResizeOb = new ResizeObserver(() => {
     if (!_bchart || !wrap.clientWidth || !wrap.clientHeight) return;
     _bchart.applyOptions({ width: wrap.clientWidth, height: wrap.clientHeight });
+    _syncOverlaySize();
   });
   _bResizeOb.observe(wrap);
 
+  // ── Volume resize handle ──
+  const handle = document.getElementById('vol-resize-handle');
+  if (handle) {
+    let _volDrag = false, _volStartY = 0, _volStartH = 0;
+    handle.addEventListener('mousedown', e => {
+      _volDrag = true;
+      _volStartY = e.clientY;
+      _volStartH = volWrap ? volWrap.clientHeight : 90;
+      document.addEventListener('mousemove', _onVolDrag);
+      document.addEventListener('mouseup', () => {
+        _volDrag = false;
+        document.removeEventListener('mousemove', _onVolDrag);
+      }, { once:true });
+      e.preventDefault();
+    });
+    function _onVolDrag(e) {
+      if (!_volDrag || !volWrap) return;
+      const delta = _volStartY - e.clientY;
+      const newH = Math.max(40, Math.min(300, _volStartH + delta));
+      volWrap.style.height = newH + 'px';
+      if (_bVolChart) _bVolChart.applyOptions({ width: volWrap.clientWidth, height: newH });
+    }
+  }
+
+  setTimeout(_syncOverlaySize, 100);
   // ── Load klines ──
   _bLoadKlines(_bChartTF);
 }
@@ -5370,11 +5454,18 @@ async function _bLoadKlines(tfLabel){
     }
     _bCandleData=candles;
     _bCandles.setData(candles);
-    _bVolume.setData(candles.map(c=>({time:c.time,value:c.volume,color:c.close>=c.open?'rgba(63,185,80,0.35)':'rgba(248,81,73,0.35)'})));
+    if(_bVolume) _bVolume.setData(candles.map(c=>({time:c.time,value:c.volume,color:c.close>=c.open?'rgba(63,185,80,0.5)':'rgba(248,81,73,0.5)'})));
     _applyIndicators();
-    _drawPoolZones();
     _renderUserLines();
     _bchart.timeScale().scrollToRealTime();
+    // Sync vol chart time range after main settles
+    setTimeout(()=>{
+      if(_bVolChart&&_bchart){
+        const lr=_bchart.timeScale().getVisibleLogicalRange();
+        if(lr)_bVolChart.timeScale().setVisibleLogicalRange(lr);
+      }
+      _drawOverlay();
+    },100);
     const wsInt=CHART_TF_MAP[tfLabel]||'1d';
     _bConnectWS(wsInt);
   }catch(e){console.error('[BChart] fetch error:',e);}
@@ -5391,7 +5482,7 @@ function _bConnectWS(interval) {
       if(!k||!_bCandles)return;
       const bar={time:Math.floor(k.t/1000),open:parseFloat(k.o),high:parseFloat(k.h),low:parseFloat(k.l),close:parseFloat(k.c),volume:parseFloat(k.v)};
       _bCandles.update(bar);
-      _bVolume.update({time:bar.time,value:bar.volume,color:bar.close>=bar.open?'rgba(63,185,80,0.35)':'rgba(248,81,73,0.35)'});
+      if(_bVolume)_bVolume.update({time:bar.time,value:bar.volume,color:bar.close>=bar.open?'rgba(63,185,80,0.5)':'rgba(248,81,73,0.5)'});
       if(_bCandleData.length){const last=_bCandleData[_bCandleData.length-1];if(last.time===bar.time)_bCandleData[_bCandleData.length-1]=bar;else if(bar.time>last.time)_bCandleData.push(bar);}
     }catch(err){}
   };
@@ -5413,35 +5504,37 @@ function rebuildBinanceChart() {
   initBinanceChart();
 }
 
-// FASE 3 — POOL ZONES
-let _bPoolLines=[], _showPoolZones=true;
-function _drawPoolZones(){
-  _bPoolLines.forEach(pl=>{try{_bCandles.removePriceLine(pl);}catch(e){}});
-  _bPoolLines=[];
-  if(!_showPoolZones||!_bCandles||!_bCandleData.length)return;
-  const modeKey=typeof currentMode!=='undefined'?currentMode:'scalping';
-  const modeData=typeof POOLS!=='undefined'?(POOLS[modeKey]||POOLS.scalping||{}):
-{};
-  const tfData=modeData[_bChartTF]||{};
-  const INTCOL={red:'rgba(248,81,73,0.85)',orange:'rgba(224,123,0,0.85)',yellow:'rgba(210,153,34,0.85)',green:'rgba(63,185,80,0.7)'};
-  [...(tfData.long_pools||[]).map(p=>({...p,side:'long'})),...(tfData.short_pools||[]).map(p=>({...p,side:'short'}))]
-    .forEach(pool=>{
-      const col=INTCOL[pool.intensity]||'rgba(120,120,120,0.6)';
-      const lbl=(pool.side==='long'?'▲ ':'▼ ')+(pool.label||'').substring(0,24);
-      const hi=_bCandles.createPriceLine({price:pool.high,color:col,lineWidth:1,lineStyle:0,axisLabelVisible:true,title:lbl});
-      const lo=_bCandles.createPriceLine({price:pool.low,color:col,lineWidth:1,lineStyle:2,axisLabelVisible:false,title:''});
-      _bPoolLines.push(hi,lo);
-    });
+// ══════════════════════════════════════════════════
+// FASE 3 — POOL ZONES (canvas overlay, time-bounded)
+// ══════════════════════════════════════════════════
+let _showPoolZones=true;
+
+// Find the first candle index where price touched the zone
+function _findZoneFormationIdx(pool) {
+  if(!_bCandleData.length) return 0;
+  for(let i=_bCandleData.length-1; i>=0; i--) {
+    const c = _bCandleData[i];
+    if(c.low <= pool.high && c.high >= pool.low) return i;
+  }
+  return 0;
 }
+
+function _drawPoolZones() {
+  if(!_bCandles || !_bCandleData.length) { _drawOverlay(); return; }
+  _drawOverlay();
+}
+
 function togglePoolZones(){
   _showPoolZones=!_showPoolZones;
   const btn=document.getElementById('chart-zones-btn');
   if(btn)btn.classList.toggle('active',_showPoolZones);
-  _drawPoolZones();
+  _drawOverlay();
 }
 
-// FASE 4 — DRAWING TOOLS
-let _drawMode=false,_userLines=JSON.parse(localStorage.getItem('td_chart_lines')||'[]'),_userPriceLines=[];
+// ══════════════════════════════════════════════════
+// FASE 4 — DRAWING TOOLS (canvas overlay)
+// ══════════════════════════════════════════════════
+let _userLines=JSON.parse(localStorage.getItem('td_chart_lines')||'[]'),_userPriceLines=[];
 function _saveUserLines(){localStorage.setItem('td_chart_lines',JSON.stringify(_userLines));}
 function _renderUserLines(){
   _userPriceLines.forEach(pl=>{try{_bCandles.removePriceLine(pl);}catch(e){}});
@@ -5452,14 +5545,265 @@ function _renderUserLines(){
     _userPriceLines.push(pl);
   });
 }
-function toggleDrawMode(){
-  _drawMode=!_drawMode;
-  const btn=document.getElementById('chart-draw-btn');
-  const wrap=document.getElementById('binance-chart');
-  if(btn)btn.classList.toggle('active',_drawMode);
-  if(wrap)wrap.style.cursor=_drawMode?'crosshair':'';
+
+function setChartTool(tool) {
+  _chartTool = tool;
+  _toolState = {};
+  const wrap = document.getElementById('binance-chart');
+  document.querySelectorAll('.ctool-btn').forEach(b=>b.classList.remove('active'));
+  const btn = document.getElementById('ctool-'+tool);
+  if(btn) btn.classList.add('active');
+  if(wrap) wrap.style.cursor = tool==='cursor'?'default':'crosshair';
+  _drawOverlay();
 }
-function clearUserLines(){_userLines=[];_saveUserLines();_renderUserLines();}
+
+function clearDrawings(){
+  _drawings=[];
+  localStorage.setItem('td_drawings',JSON.stringify(_drawings));
+  _toolState={};
+  _drawOverlay();
+}
+
+function _onChartMouseMove(e) {
+  if(!_bchart||!_bCandles) return;
+  const wrap=document.getElementById('binance-chart');
+  if(!wrap) return;
+  const rect=wrap.getBoundingClientRect();
+  const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  _toolState.mouseX=x; _toolState.mouseY=y;
+  _toolState.mousePrice=_bCandles.coordinateToPrice(y);
+  _toolState.mouseTime=_bchart.timeScale().coordinateToTime(x);
+  if(_chartTool!=='cursor') _drawOverlay();
+}
+
+function _onChartClick(e) {
+  if(!_bchart||!_bCandles) return;
+  const wrap=document.getElementById('binance-chart');
+  if(!wrap) return;
+  const rect=wrap.getBoundingClientRect();
+  const x=e.clientX-rect.left, y=e.clientY-rect.top;
+  const price=_bCandles.coordinateToPrice(y);
+  const time=_bchart.timeScale().coordinateToTime(x);
+  if(!price||price<=0) return;
+
+  if(_chartTool==='hline') {
+    _userLines.push({price:Math.round(price),color:'#58a6ff',label:''});
+    _saveUserLines(); _renderUserLines();
+    return;
+  }
+  if(_chartTool==='fib') {
+    if(!_toolState.p1) {
+      _toolState.p1={price,time};
+    } else {
+      _drawings.push({type:'fib',p1:_toolState.p1,p2:{price,time}});
+      localStorage.setItem('td_drawings',JSON.stringify(_drawings));
+      _toolState={};
+      _drawOverlay();
+    }
+    return;
+  }
+  if(_chartTool==='measure') {
+    if(!_toolState.p1) {
+      _toolState.p1={price,time};
+    } else {
+      _drawings.push({type:'measure',p1:_toolState.p1,p2:{price,time}});
+      localStorage.setItem('td_drawings',JSON.stringify(_drawings));
+      _toolState={};
+      _drawOverlay();
+    }
+    return;
+  }
+  if(_chartTool==='long'||_chartTool==='short') {
+    if(!_toolState.p1) {
+      _toolState.p1={price,time};
+    } else {
+      const entry=_toolState.p1.price;
+      const side=_chartTool;
+      const isLong=side==='long';
+      const diff=Math.abs(price-entry);
+      const sl=isLong?entry-diff:entry+diff;
+      const tp=isLong?entry+diff*2:entry-diff*2;
+      _drawings.push({type:'position',side,entry,sl,tp,time:_toolState.p1.time,time2:{price,time}});
+      localStorage.setItem('td_drawings',JSON.stringify(_drawings));
+      _toolState={};
+      _drawOverlay();
+    }
+    return;
+  }
+}
+
+// ══════════════════════════════════════════════════
+// CANVAS OVERLAY RENDERER
+// ══════════════════════════════════════════════════
+function _drawOverlay() {
+  if(!_bOverlay||!_bchart||!_bCandles) return;
+  const W=_bOverlay.width, H=_bOverlay.height;
+  const ctx=_bOverlay.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const ts=_bchart.timeScale();
+  const ps=_bCandles;
+
+  function priceY(p){ const y=ps.priceToCoordinate(p); return y; }
+  function timeX(t){ const x=ts.timeToCoordinate(t); return x; }
+
+  // ── Pool zones ──
+  if(_showPoolZones && _bCandleData.length && typeof POOLS!=='undefined') {
+    const modeKey=typeof currentMode!=='undefined'?currentMode:'scalping';
+    const modeData=POOLS[modeKey]||POOLS.scalping||POOLS[Object.keys(POOLS)[0]]||{};
+    const INTCOL={
+      red:   {fill:'rgba(248,81,73,0.12)', stroke:'rgba(248,81,73,0.7)'},
+      orange:{fill:'rgba(224,123,0,0.12)', stroke:'rgba(224,123,0,0.7)'},
+      yellow:{fill:'rgba(210,153,34,0.12)',stroke:'rgba(210,153,34,0.7)'},
+      green: {fill:'rgba(63,185,80,0.12)', stroke:'rgba(63,185,80,0.7)'}
+    };
+    // Collect pools from ALL TFs that match current TF
+    const allPools=[];
+    // Check current TF and also fallback to all TFs
+    const tfKeys=Object.keys(modeData);
+    for(const tf of tfKeys){
+      const td=modeData[tf]||{};
+      [...(td.long_pools||[]).map(p=>({...p,side:'long',tf})),
+       ...(td.short_pools||[]).map(p=>({...p,side:'short',tf}))]
+      .forEach(p=>allPools.push(p));
+    }
+    allPools.forEach(pool=>{
+      if(!pool.high||!pool.low) return;
+      const col=INTCOL[pool.intensity]||{fill:'rgba(100,100,100,0.1)',stroke:'rgba(150,150,150,0.5)'};
+      // Find formation candle (last touch of zone going backwards)
+      let startIdx=0;
+      for(let i=_bCandleData.length-1;i>=0;i--){
+        const c=_bCandleData[i];
+        if(c.low<=pool.high && c.high>=pool.low){startIdx=i;break;}
+      }
+      const startCandle=_bCandleData[startIdx];
+      const lastCandle=_bCandleData[_bCandleData.length-1];
+      const x1=timeX(startCandle.time);
+      const x2=timeX(lastCandle.time)+40; // extend slightly past last candle
+      const y1=priceY(pool.high);
+      const y2=priceY(pool.low);
+      if(x1===null||x2===null||y1===null||y2===null) return;
+      // Fill
+      ctx.fillStyle=col.fill;
+      ctx.fillRect(x1,Math.min(y1,y2),x2-x1,Math.abs(y2-y1));
+      // Top line (solid)
+      ctx.strokeStyle=col.stroke; ctx.lineWidth=1.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y1); ctx.stroke();
+      // Bottom line (dashed)
+      ctx.strokeStyle=col.stroke; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(x1,y2); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.setLineDash([]);
+      // Label
+      const lbl=(pool.side==='long'?'▲ ':'▼ ')+(pool.label||'').substring(0,20);
+      ctx.fillStyle=col.stroke; ctx.font='bold 10px monospace';
+      ctx.fillText(lbl, x2+4, Math.min(y1,y2)+10);
+    });
+  }
+
+  // ── Saved drawings ──
+  (_drawings||[]).forEach(d=>_renderDrawing(ctx,d,W,H,priceY,timeX));
+
+  // ── In-progress tool preview ──
+  if(_toolState.p1 && _toolState.mousePrice && _toolState.mouseX!=null) {
+    const preview={
+      type:_chartTool,
+      p1:_toolState.p1,
+      p2:{price:_toolState.mousePrice, time:_toolState.mouseTime}
+    };
+    if(_chartTool==='long'||_chartTool==='short'){
+      const entry=_toolState.p1.price;
+      const diff=Math.abs(_toolState.mousePrice-entry);
+      const isLong=_chartTool==='long';
+      preview.entry=entry; preview.sl=isLong?entry-diff:entry+diff;
+      preview.tp=isLong?entry+diff*2:entry-diff*2;
+      preview.side=_chartTool; preview.time=_toolState.p1.time;
+    }
+    ctx.globalAlpha=0.75;
+    _renderDrawing(ctx,preview,W,H,priceY,timeX);
+    ctx.globalAlpha=1;
+  }
+}
+
+function _renderDrawing(ctx,d,W,H,priceY,timeX){
+  if(!d||!d.type) return;
+  const x1=timeX(d.p1?.time||d.time||0);
+  const x2=d.p2?timeX(d.p2.time):W;
+
+  if(d.type==='fib'){
+    const high=Math.max(d.p1.price,d.p2.price);
+    const low=Math.min(d.p1.price,d.p2.price);
+    const range=high-low;
+    const levels=[0,0.236,0.382,0.5,0.618,0.786,1];
+    const cols=['#f85149','#f0883e','#e3b341','#3fb950','#58a6ff','#bc8cff','#f85149'];
+    const lx1=Math.min(x1??0,x2??W), lx2=Math.max(x1??0,x2??W);
+    levels.forEach((lvl,i)=>{
+      const price=high-range*lvl;
+      const y=priceY(price);
+      if(y===null) return;
+      ctx.strokeStyle=cols[i]; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(lx1,y); ctx.lineTo(lx2,y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle=cols[i]; ctx.font='10px monospace';
+      ctx.fillText(`${(lvl*100).toFixed(1)}%  $${Math.round(price).toLocaleString()}`, lx2+4, y-2);
+    });
+    // Vertical anchors
+    ctx.strokeStyle='rgba(88,166,255,0.4)'; ctx.lineWidth=1; ctx.setLineDash([2,2]);
+    if(x1!=null){ctx.beginPath();ctx.moveTo(x1,0);ctx.lineTo(x1,H);ctx.stroke();}
+    if(x2!=null){ctx.beginPath();ctx.moveTo(x2,0);ctx.lineTo(x2,H);ctx.stroke();}
+    ctx.setLineDash([]);
+  }
+
+  else if(d.type==='measure'){
+    const y1=priceY(d.p1.price), y2=priceY(d.p2.price);
+    if(y1===null||y2===null||x1===null||x2===null) return;
+    const priceDiff=d.p2.price-d.p1.price;
+    const pct=(priceDiff/d.p1.price*100).toFixed(2);
+    const col=priceDiff>=0?'rgba(63,185,80,0.6)':'rgba(248,81,73,0.6)';
+    const colS=priceDiff>=0?'#3fb950':'#f85149';
+    // Box
+    ctx.fillStyle=col;
+    ctx.fillRect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1));
+    ctx.strokeStyle=colS; ctx.lineWidth=1.5; ctx.setLineDash([]);
+    ctx.strokeRect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1));
+    // Label
+    const sign=priceDiff>=0?'+':'';
+    const label=`${sign}${pct}%  ${sign}$${Math.round(Math.abs(priceDiff)).toLocaleString()}`;
+    ctx.fillStyle=colS; ctx.font='bold 11px monospace';
+    ctx.fillText(label, Math.min(x1,x2)+4, Math.min(y1,y2)-4);
+  }
+
+  else if(d.type==='position'){
+    const isLong=d.side==='long';
+    const yE=priceY(d.entry), ySL=priceY(d.sl), yTP=priceY(d.tp);
+    if(yE===null||ySL===null||yTP===null) return;
+    const xS=d.time?timeX(d.time):0;
+    const xE=W;
+    // TP zone
+    ctx.fillStyle='rgba(63,185,80,0.15)';
+    ctx.fillRect(xS,Math.min(yE,yTP),xE-xS,Math.abs(yTP-yE));
+    // SL zone
+    ctx.fillStyle='rgba(248,81,73,0.15)';
+    ctx.fillRect(xS,Math.min(yE,ySL),xE-xS,Math.abs(ySL-yE));
+    // Entry line
+    ctx.strokeStyle='#e3b341'; ctx.lineWidth=2; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(xS,yE); ctx.lineTo(xE,yE); ctx.stroke();
+    // TP line
+    ctx.strokeStyle='#3fb950'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(xS,yTP); ctx.lineTo(xE,yTP); ctx.stroke();
+    // SL line
+    ctx.strokeStyle='#f85149'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(xS,ySL); ctx.lineTo(xE,ySL); ctx.stroke();
+    // Labels
+    ctx.font='bold 10px monospace';
+    ctx.fillStyle='#e3b341'; ctx.fillText(`Entry $${Math.round(d.entry).toLocaleString()}`, xS+4, yE-3);
+    ctx.fillStyle='#3fb950'; ctx.fillText(`TP $${Math.round(d.tp).toLocaleString()}`, xS+4, yTP-3);
+    ctx.fillStyle='#f85149'; ctx.fillText(`SL $${Math.round(d.sl).toLocaleString()}`, xS+4, ySL+12);
+    // R:R badge
+    const rr=Math.abs(d.tp-d.entry)/Math.abs(d.entry-d.sl);
+    ctx.fillStyle='rgba(13,17,23,0.85)'; ctx.fillRect(xS,yE-22,80,18);
+    ctx.fillStyle='#e3b341'; ctx.fillText(`${isLong?'LONG':'SHORT'}  R:R ${rr.toFixed(1)}`, xS+4, yE-8);
+  }
+}
 
 // ════════════════════════════════════════════════════
 // FASE 2 — INDICADORES TÉCNICOS
@@ -5481,7 +5825,6 @@ function _applyIndicators() {
   const sub=(hasRSI?1:0)+(hasMACD?1:0);
   const mainBot=sub===0?0.22:sub===1?0.36:0.50;
   _bchart.priceScale('right').applyOptions({scaleMargins:{top:0.06,bottom:mainBot}});
-  _bchart.priceScale('vol').applyOptions({scaleMargins:{top:0.78,bottom:mainBot}});
   const times=_bCandleData.map(c=>c.time);
   const closes=_bCandleData.map(c=>c.close);
   const toS=(arr)=>arr.map((v,i)=>v!==null?{time:times[i],value:v}:null).filter(Boolean);
