@@ -2888,8 +2888,8 @@ function updatePoolMap() {
   const pools = filterSweptPools(rawPools, currentPrice);
   map.innerHTML = '';
 
-  const shortPools = (pools.short_pools || []).slice().sort((a,b) => a.low - b.low);
-  const longPools  = (pools.long_pools  || []).slice().sort((a,b) => b.low - a.low);
+  const shortPools = (pools.short_pools || []).slice().sort((a,b) => b.low - a.low); // desc: más lejano arriba, más cercano al precio abajo
+  const longPools  = (pools.long_pools  || []).slice().sort((a,b) => b.low - a.low); // desc: más cercano al precio arriba, más lejano abajo
 
   if (!shortPools.length && !longPools.length) {
     map.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:12px;text-align:center">Sin pools en '+currentTF+'.<br>Agregá pools desde el editor.</div>';
