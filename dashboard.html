@@ -5210,13 +5210,8 @@ let _bWS       = null;  // live WebSocket
 let _bResizeOb = null;  // ResizeObserver
 let _bOverlay  = null;  // canvas overlay for drawings
 let _chartTool = 'cursor'; // active tool
-let _drawings    = JSON.parse(localStorage.getItem('td_drawings')||'[]'); // persisted drawings
 let _toolState   = {}; // tool interaction state (anchors, preview)
 let _currentCross = null; // current crosshair price+time
-let _selectedIdx = -1;  // index of selected drawing (-1 = none)
-let _hoverIdx    = -1;  // index of hovered drawing (-1 = none)
-let _dragActive  = false;
-let _dragStart   = null; // {x,y,drawing: deep copy of original}
 
 function initBinanceChart() {
   const wrap = document.getElementById('binance-chart');
@@ -5568,196 +5563,240 @@ function togglePoolZones(){
 }
 
 // ══════════════════════════════════════════════════
-// FASE 4 — DRAWING TOOLS (canvas overlay)
-// ══════════════════════════════════════════════════
-let _userLines=JSON.parse(localStorage.getItem('td_chart_lines')||'[]'),_userPriceLines=[];
-function _saveUserLines(){localStorage.setItem('td_chart_lines',JSON.stringify(_userLines));}
+// ════════════════════════════════════════════════════════════════
+// DRAWING TOOLS — TV-style (position, fib, measure, hline)
+// ════════════════════════════════════════════════════════════════
+
+let _userLines = JSON.parse(localStorage.getItem('td_chart_lines')||'[]');
+let _userPriceLines = [];
+let _drawings    = JSON.parse(localStorage.getItem('td_drawings')||'[]');
+let _selectedIdx = -1;
+let _hoverIdx    = -1;
+let _dragActive  = false;
+let _dragStart   = null; // {x,y,ppp,drawing,role}
+
+function _saveUserLines(){ localStorage.setItem('td_chart_lines',JSON.stringify(_userLines)); }
 function _renderUserLines(){
   _userPriceLines.forEach(pl=>{try{_bCandles.removePriceLine(pl);}catch(e){}});
   _userPriceLines=[];
   if(!_bCandles)return;
-  _userLines.forEach((line,idx)=>{
-    const pl=_bCandles.createPriceLine({price:line.price,color:line.color||'#58a6ff',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:line.label||('L'+(idx+1))});
+  _userLines.forEach((l,i)=>{
+    const pl=_bCandles.createPriceLine({price:l.price,color:l.color||'#58a6ff',lineWidth:1,lineStyle:0,axisLabelVisible:true,title:l.label||('H'+(i+1))});
     _userPriceLines.push(pl);
   });
 }
 
-function setChartTool(tool) {
-  _chartTool = tool;
-  _toolState = {};
-  const wrap = document.getElementById('binance-chart');
+function setChartTool(tool){
+  _chartTool=tool; _toolState={};
   document.querySelectorAll('.ctool-btn').forEach(b=>b.classList.remove('active'));
-  const btn = document.getElementById('ctool-'+tool);
+  const btn=document.getElementById('ctool-'+tool);
   if(btn) btn.classList.add('active');
-  if(wrap) wrap.style.cursor = tool==='cursor'?'default':'crosshair';
+  const wrap=document.getElementById('binance-chart');
+  if(wrap) wrap.style.cursor=(tool==='cursor')?'default':'crosshair';
   _drawOverlay();
 }
 
 function clearDrawings(){
-  _drawings=[];
-  localStorage.setItem('td_drawings',JSON.stringify(_drawings));
-  _toolState={};
-  _drawOverlay();
+  _drawings=[]; localStorage.setItem('td_drawings',JSON.stringify(_drawings));
+  _selectedIdx=-1; _toolState={}; _drawOverlay();
 }
 
-// Hit test: returns index of drawing under (x,y) or -1
+// ── Price-per-pixel ratio (stable, calculated fresh) ──
+function _pricePerPixel(){
+  if(!_bCandles) return null;
+  const p1=_bCandles.coordinateToPrice(100), p2=_bCandles.coordinateToPrice(200);
+  if(p1==null||p2==null) return null;
+  return (p2-p1)/100; // negative: y increases downward, price increases upward
+}
+
+// ── Hit test: returns drawing index or -1 ──
 function _hitTest(x,y){
   if(!_bchart||!_bCandles) return -1;
-  const priceY=p=>_bCandles.priceToCoordinate(p);
-  const timeX=t=>_bchart.timeScale().timeToCoordinate(t);
+  const W=_bOverlay?_bOverlay.width:800;
   for(let i=_drawings.length-1;i>=0;i--){
     const d=_drawings[i];
+    if(!d) continue;
     if(d.type==='fib'){
-      const x1=timeX(d.p1.time), x2=timeX(d.p2.time);
-      if(x1===null||x2===null) continue;
+      const x1=_bchart.timeScale().timeToCoordinate(d.p1.time);
+      const x2=_bchart.timeScale().timeToCoordinate(d.p2.time);
+      if(x1==null||x2==null) continue;
       const lx1=Math.min(x1,x2)-8, lx2=Math.max(x1,x2)+60;
       if(x<lx1||x>lx2) continue;
-      const high=Math.max(d.p1.price,d.p2.price), low=Math.min(d.p1.price,d.p2.price);
-      const range=high-low;
-      for(const lvl of [0,0.236,0.382,0.5,0.618,0.786,1]){
-        const py=priceY(high-range*lvl);
-        if(py!==null&&Math.abs(y-py)<=6) return i;
+      const hi=Math.max(d.p1.price,d.p2.price), lo=Math.min(d.p1.price,d.p2.price);
+      for(const lvl of [0,.236,.382,.5,.618,.786,1]){
+        const py=_bCandles.priceToCoordinate(hi-(hi-lo)*lvl);
+        if(py!=null&&Math.abs(y-py)<=7) return i;
       }
     } else if(d.type==='measure'){
-      const x1=timeX(d.p1.time), x2=timeX(d.p2.time);
-      const y1=priceY(d.p1.price), y2=priceY(d.p2.price);
-      if(x1===null||x2===null||y1===null||y2===null) continue;
+      const x1=_bchart.timeScale().timeToCoordinate(d.p1.time);
+      const x2=_bchart.timeScale().timeToCoordinate(d.p2.time);
+      const y1=_bCandles.priceToCoordinate(d.p1.price);
+      const y2=_bCandles.priceToCoordinate(d.p2.price);
+      if(x1==null||x2==null||y1==null||y2==null) continue;
       if(x>=Math.min(x1,x2)-4&&x<=Math.max(x1,x2)+4&&y>=Math.min(y1,y2)-4&&y<=Math.max(y1,y2)+4) return i;
     } else if(d.type==='position'){
-      const yE=priceY(d.entry), yS=priceY(d.sl), yT=priceY(d.tp);
-      const rawXS2=d.time!=null?timeX(d.time):null;
-      const rawXE2=d.timeEnd!=null?timeX(d.timeEnd):null;
-      const xS=Math.max(0,rawXS2??0);
-      const xEnd=Math.min(W,rawXE2??(xS+300));
-      // Check line handles (right edge circles)
-      if(xEnd!==null){
-        if(yE!==null&&Math.hypot(x-xEnd,y-yE)<=8) return i;
-        if(yS!==null&&Math.hypot(x-xEnd,y-yS)<=8) return i;
-        if(yT!==null&&Math.hypot(x-xEnd,y-yT)<=8) return i;
-      }
-      // Check line bodies
-      const inX=xS!==null&&xEnd!==null&&x>=Math.min(xS,xEnd)-4&&x<=Math.max(xS,xEnd)+4;
-      if(inX&&((yE!==null&&Math.abs(y-yE)<=6)||(yS!==null&&Math.abs(y-yS)<=6)||(yT!==null&&Math.abs(y-yT)<=6))) return i;
-      // Check zones
-      if(inX&&yE!==null&&yT!==null&&y>=Math.min(yE,yT)&&y<=Math.max(yE,yT)) return i;
-      if(inX&&yE!==null&&yS!==null&&y>=Math.min(yE,yS)&&y<=Math.max(yE,yS)) return i;
+      const yE=_bCandles.priceToCoordinate(d.entry);
+      const yT=_bCandles.priceToCoordinate(d.tp);
+      const yS=_bCandles.priceToCoordinate(d.sl);
+      const rawXS=d.time!=null?_bchart.timeScale().timeToCoordinate(d.time):null;
+      const rawXE=d.timeEnd!=null?_bchart.timeScale().timeToCoordinate(d.timeEnd):null;
+      const xS=Math.max(0,rawXS??0);
+      const xE=Math.min(W-2,rawXE??(Math.min(W-2,xS+300)));
+      const inX=x>=xS-4&&x<=xE+12;
+      // Right handles first (smallest target)
+      if(yT!=null&&Math.hypot(x-xE,y-yT)<=10) return i;
+      if(yE!=null&&Math.hypot(x-xE,y-yE)<=10) return i;
+      if(yS!=null&&Math.hypot(x-xE,y-yS)<=10) return i;
+      // Lines
+      if(inX&&yT!=null&&Math.abs(y-yT)<=10) return i;
+      if(inX&&yE!=null&&Math.abs(y-yE)<=10) return i;
+      if(inX&&yS!=null&&Math.abs(y-yS)<=10) return i;
+      // Zone fills
+      if(inX&&yE!=null&&yT!=null&&y>Math.min(yE,yT)&&y<Math.max(yE,yT)) return i;
+      if(inX&&yE!=null&&yS!=null&&y>Math.min(yE,yS)&&y<Math.max(yE,yS)) return i;
     }
   }
   return -1;
 }
 
-// Detect which part of a position drawing is under (x,y)
-function _posHandleAt(d,x,y,W){
+// ── Which part of a position is under cursor ──
+function _posRole(d,x,y){
   if(!d||d.type!=='position'||!_bchart||!_bCandles) return null;
-  const priceY=p=>_bCandles.priceToCoordinate(p);
-  const timeX=t=>_bchart.timeScale().timeToCoordinate(t);
-  const yE=priceY(d.entry),yS=priceY(d.sl),yT=priceY(d.tp);
-  const rawXSh=d.time!=null?timeX(d.time):null;
-  const rawXEh=d.timeEnd!=null?timeX(d.timeEnd):null;
-  const xS=Math.max(0,rawXSh??0);
-  const xEnd=Math.min(W,rawXEh??(xS+300));
-  if(xEnd!==null){
-    if(yE!==null&&Math.hypot(x-xEnd,y-yE)<=10) return 'entry-right';
-    if(yS!==null&&Math.hypot(x-xEnd,y-yS)<=10) return 'sl-right';
-    if(yT!==null&&Math.hypot(x-xEnd,y-yT)<=10) return 'tp-right';
-  }
-  // Left anchor handle
-  if(xS!==null){
-    if(yE!==null&&Math.hypot(x-xS,y-yE)<=10) return 'entry-left';
-  }
-  // Line body hits — wider tolerance for easier grabbing
-  const inX=xS!==null&&xEnd!==null&&x>=Math.min(xS,xEnd)-4&&x<=Math.max(xS,xEnd)+8;
-  if(inX&&yE!==null&&Math.abs(y-yE)<=8) return 'entry-line';
-  if(inX&&yS!==null&&Math.abs(y-yS)<=8) return 'sl-line';
-  if(inX&&yT!==null&&Math.abs(y-yT)<=8) return 'tp-line';
-  // Zone body → move whole position
-  if(inX&&yE!==null&&yT!==null&&y>=Math.min(yE,yT)&&y<=Math.max(yE,yT)) return 'body';
-  if(inX&&yE!==null&&yS!==null&&y>=Math.min(yE,yS)&&y<=Math.max(yE,yS)) return 'body';
+  const W=_bOverlay?_bOverlay.width:800;
+  const yE=_bCandles.priceToCoordinate(d.entry);
+  const yT=_bCandles.priceToCoordinate(d.tp);
+  const yS=_bCandles.priceToCoordinate(d.sl);
+  const rawXS=d.time!=null?_bchart.timeScale().timeToCoordinate(d.time):null;
+  const rawXE=d.timeEnd!=null?_bchart.timeScale().timeToCoordinate(d.timeEnd):null;
+  const xS=Math.max(0,rawXS??0);
+  const xE=Math.min(W-2,rawXE??(Math.min(W-2,xS+300)));
+  // Right handles
+  if(yT!=null&&Math.hypot(x-xE,y-yT)<=10) return 'right-tp';
+  if(yE!=null&&Math.hypot(x-xE,y-yE)<=10) return 'right-entry';
+  if(yS!=null&&Math.hypot(x-xE,y-yS)<=10) return 'right-sl';
+  // Left anchor
+  if(yE!=null&&Math.hypot(x-xS,y-yE)<=10) return 'left';
+  const inX=x>=xS-4&&x<=xE+10;
+  if(inX&&yT!=null&&Math.abs(y-yT)<=10) return 'tp';
+  if(inX&&yE!=null&&Math.abs(y-yE)<=10) return 'entry';
+  if(inX&&yS!=null&&Math.abs(y-yS)<=10) return 'sl';
+  if(inX&&yE!=null&&yT!=null&&y>Math.min(yE,yT)&&y<Math.max(yE,yT)) return 'body';
+  if(inX&&yE!=null&&yS!=null&&y>Math.min(yE,yS)&&y<Math.max(yE,yS)) return 'body';
   return null;
 }
 
+// ── Mouse handlers ──
 function _onChartMouseDown(e){
-  if(_chartTool!=='cursor') return;
   const wrap=document.getElementById('binance-chart');
-  if(!wrap) return;
+  if(!wrap||!_bchart||!_bCandles) return;
   const rect=wrap.getBoundingClientRect();
-  const x=e.clientX-rect.left, y=e.clientY-rect.top;
-  const hit=_hitTest(x,y);
-  if(hit<0){ _selectedIdx=-1; _drawOverlay(); return; }
-  _selectedIdx=hit;
-  const d=_drawings[hit];
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
 
-  // Determine drag role for positions
-  let dragRole='body';
-  if(d.type==='position'){
-    dragRole=_posHandleAt(d,x,y,wrap.clientWidth)||'body';
+  // ── POSITION CREATION: single drag gesture ──
+  if(_chartTool==='long'||_chartTool==='short'){
+    const entryP=_bCandles.coordinateToPrice(my);
+    const entryT=_bchart.timeScale().coordinateToTime(mx);
+    if(!entryP||entryP<=0) return;
+    const side=_chartTool, isLong=side==='long';
+    const ppp=_pricePerPixel()||0;
+    e.preventDefault(); e.stopPropagation();
+    function onMove(ev){
+      const cx=ev.clientX-rect.left, cy=ev.clientY-rect.top;
+      const dp=(cy-my)*ppp; // price delta (negative ppp means dy>0 → price lower)
+      const target=entryP+dp;
+      const tp=isLong?Math.max(entryP,target):Math.min(entryP,target);
+      const sl=isLong?entryP-(tp-entryP):entryP+(entryP-tp);
+      const endT=_bchart.timeScale().coordinateToTime(cx)||entryT;
+      _toolState._prev={type:'position',side,entry:entryP,tp,sl,time:entryT,timeEnd:endT};
+      _drawOverlay();
+    }
+    function onUp(ev){
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+      const cy=ev.clientY-rect.bottom+rect.height;
+      const dy=ev.clientY-rect.top-my;
+      _toolState._prev=null;
+      if(Math.abs(dy)<6){_drawOverlay();return;}
+      const cx=ev.clientX-rect.left;
+      const dp=dy*ppp, target=entryP+dp;
+      const tp=isLong?Math.max(entryP,target):Math.min(entryP,target);
+      const sl=isLong?entryP-(tp-entryP):entryP+(entryP-tp);
+      const endT=_bchart.timeScale().coordinateToTime(cx)||entryT;
+      _drawings.push({type:'position',side,entry:entryP,tp,sl,time:entryT,timeEnd:endT});
+      localStorage.setItem('td_drawings',JSON.stringify(_drawings));
+      _selectedIdx=_drawings.length-1;
+      setChartTool('cursor');
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+    return;
   }
 
+  if(_chartTool!=='cursor') return;
+
+  const hit=_hitTest(mx,my);
+  if(hit<0){ _selectedIdx=-1; _drawOverlay(); return; }
+
+  _selectedIdx=hit;
+  const d=_drawings[hit];
+  const role=d.type==='position'?(_posRole(d,mx,my)||'body'):'body';
+  const ppp=_pricePerPixel();
   _dragActive=true;
-  _dragStart={x,y,drawing:JSON.parse(JSON.stringify(d)),role:dragRole};
+  _dragStart={x:mx,y:my,ppp,drawing:JSON.parse(JSON.stringify(d)),role};
   e.stopPropagation();
   wrap.style.cursor='grabbing';
   _drawOverlay();
 
+  function shiftTime(t,dx){
+    if(!t) return t;
+    const tx=_bchart.timeScale().timeToCoordinate(t);
+    if(tx==null) return t;
+    return _bchart.timeScale().coordinateToTime(tx+dx)||t;
+  }
+  function deltaPrice(basePx,dy){
+    const p=_dragStart.ppp;
+    return p!=null?(basePx+p*dy):basePx;
+  }
+
   function onMove(ev){
     if(!_dragActive||!_dragStart) return;
-    const rect2=wrap.getBoundingClientRect();
-    const cx=ev.clientX-rect2.left, cy=ev.clientY-rect2.top;
-    const dy=cy-_dragStart.y, dx=cx-_dragStart.x;
-    const orig=_dragStart.drawing;
-    const dr=_drawings[_selectedIdx];
+    const r2=wrap.getBoundingClientRect();
+    const cx=ev.clientX-r2.left, cy=ev.clientY-r2.top;
+    const dx=cx-_dragStart.x, dy=cy-_dragStart.y;
+    const orig=_dragStart.drawing, dr=_drawings[_selectedIdx];
     if(!dr) return;
     const W2=wrap.clientWidth;
 
-    // Pixel→price using ratio from two visible reference points (works off-screen)
-    function _pricePerPixel(){
-      const y1=100, y2=200;
-      const p1=_bCandles.coordinateToPrice(y1), p2=_bCandles.coordinateToPrice(y2);
-      if(p1===null||p2===null) return null;
-      return (p2-p1)/100; // negative (y↑ = price↑)
-    }
-    function coordToPrice(basePrice,deltaY){
-      const ppp=_pricePerPixel();
-      if(ppp===null) return basePrice;
-      return basePrice + ppp*deltaY;
-    }
-    function shiftTime(t,deltaX){
-      if(!t) return t;
-      const tx=_bchart.timeScale().timeToCoordinate(t);
-      if(tx===null) return t;
-      return _bchart.timeScale().coordinateToTime(tx+deltaX)||t;
-    }
-    function coordToTime(x2){
-      return _bchart.timeScale().coordinateToTime(x2)||orig.timeEnd||null;
-    }
-
     if(dr.type==='fib'||dr.type==='measure'){
-      const pDelta=coordToPrice(orig.p1.price,dy)-orig.p1.price;
-      dr.p1={...orig.p1,price:orig.p1.price+pDelta,time:shiftTime(orig.p1.time,dx)};
-      dr.p2={...orig.p2,price:orig.p2.price+pDelta,time:shiftTime(orig.p2.time,dx)};
+      const pD=deltaPrice(orig.p1.price,dy)-orig.p1.price;
+      dr.p1={...orig.p1,price:orig.p1.price+pD,time:shiftTime(orig.p1.time,dx)};
+      dr.p2={...orig.p2,price:orig.p2.price+pD,time:shiftTime(orig.p2.time,dx)};
     } else if(dr.type==='position'){
       const role=_dragStart.role;
-      if(role==='entry-line'||role==='entry-left'){
-        dr.entry=coordToPrice(orig.entry,dy);
-      } else if(role==='sl-line'||role==='sl-right'){
-        dr.sl=coordToPrice(orig.sl,dy);
-      } else if(role==='tp-line'||role==='tp-right'){
-        dr.tp=coordToPrice(orig.tp,dy);
-      } else if(role==='entry-right'){
-        const origTE=orig.timeEnd?_bchart.timeScale().timeToCoordinate(orig.timeEnd):null;
-        const origTS=orig.time?_bchart.timeScale().timeToCoordinate(orig.time):0;
-        const baseXE=origTE??((origTS||0)+300);
-        const newXEnd=Math.max((origTS||0)+40, baseXE+dx);
-        dr.timeEnd=coordToTime(newXEnd);
-      } else {
-        // body → move whole position (price + time)
-        const pDelta=coordToPrice(orig.entry,dy)-orig.entry;
-        dr.entry=orig.entry+pDelta; dr.sl=orig.sl+pDelta; dr.tp=orig.tp+pDelta;
+      if(role==='tp'||role==='right-tp'){
+        dr.tp=deltaPrice(orig.tp,dy);
+      } else if(role==='sl'||role==='right-sl'){
+        dr.sl=deltaPrice(orig.sl,dy);
+      } else if(role==='entry'||role==='right-entry'){
+        dr.entry=deltaPrice(orig.entry,dy);
+      } else if(role==='left'){
+        dr.time=shiftTime(orig.time,dx);
+        dr.entry=deltaPrice(orig.entry,dy);
+      } else if(role==='right-entry'){
+        // Horizontal extension
+        const rawXE=orig.timeEnd?_bchart.timeScale().timeToCoordinate(orig.timeEnd):null;
+        const rawXS=orig.time?_bchart.timeScale().timeToCoordinate(orig.time):0;
+        const baseE=rawXE??((rawXS||0)+300);
+        const newXE=Math.max((rawXS||0)+40,baseE+dx);
+        dr.timeEnd=_bchart.timeScale().coordinateToTime(newXE)||orig.timeEnd;
+      } else { // body
+        const pD=deltaPrice(orig.entry,dy)-orig.entry;
+        dr.entry=orig.entry+pD; dr.sl=orig.sl+pD; dr.tp=orig.tp+pD;
         dr.time=shiftTime(orig.time,dx);
         if(orig.timeEnd) dr.timeEnd=shiftTime(orig.timeEnd,dx);
       }
-      // Update modal if open
-      if(document.getElementById('pos-edit-modal').classList.contains('open')&&_editingPosIdx===_selectedIdx){
+      // Sync open modal
+      if(document.getElementById('pos-edit-modal')?.classList.contains('open')&&_editingPosIdx===_selectedIdx){
         document.getElementById('pos-entry').value=Math.round(dr.entry);
         document.getElementById('pos-sl').value=Math.round(dr.sl);
         document.getElementById('pos-tp').value=Math.round(dr.tp);
@@ -5766,6 +5805,7 @@ function _onChartMouseDown(e){
     }
     _drawOverlay();
   }
+
   function onUp(){
     _dragActive=false; _dragStart=null;
     wrap.style.cursor=_hoverIdx>=0?'move':'default';
@@ -5777,7 +5817,7 @@ function _onChartMouseDown(e){
   document.addEventListener('mouseup',onUp);
 }
 
-function _onChartMouseMove(e) {
+function _onChartMouseMove(e){
   if(!_bchart||!_bCandles) return;
   const wrap=document.getElementById('binance-chart');
   if(!wrap) return;
@@ -5786,6 +5826,7 @@ function _onChartMouseMove(e) {
   _toolState.mouseX=x; _toolState.mouseY=y;
   _toolState.mousePrice=_bCandles.coordinateToPrice(y);
   _toolState.mouseTime=_bchart.timeScale().coordinateToTime(x);
+
   if(_chartTool==='cursor'){
     const hit=_hitTest(x,y);
     _hoverIdx=hit;
@@ -5793,416 +5834,287 @@ function _onChartMouseMove(e) {
       let cur='default';
       if(hit>=0){
         const dh=_drawings[hit];
-        if(dh&&dh.type==='position'){
-          const role=_posHandleAt(dh,x,y,wrap.clientWidth);
-          if(role==='entry-line'||role==='sl-line'||role==='tp-line') cur='ns-resize';
-          else if(role==='entry-right'||role==='sl-right'||role==='tp-right') cur='ew-resize';
-          else if(role==='entry-left') cur='ew-resize';
-          else cur='move';
-        } else { cur='grab'; }
+        if(dh?.type==='position'){
+          const r=_posRole(dh,x,y);
+          cur=r==='tp'||r==='sl'||r==='entry'?'ns-resize':
+              r==='right-tp'||r==='right-sl'||r==='right-entry'||r==='left'?'ew-resize':
+              r==='body'?'move':'grab';
+        } else cur='grab';
       }
       wrap.style.cursor=cur;
     }
-    _drawOverlay();
-    return;
   }
-  _drawOverlay();
+  if(_chartTool!=='cursor'||_dragActive) _drawOverlay();
+  else if(_hoverIdx!==(_prevHover??-2)){ _prevHover=_hoverIdx; _drawOverlay(); }
 }
+let _prevHover=-2;
 
-function _onChartClick(e) {
-  if(!_bchart||!_bCandles) return;
-  if(_dragActive) return; // ignore click after drag
-  // Check delete button click
-  if(window._deleteBtn){
-    const wrap=document.getElementById('binance-chart');
-    const rect2=wrap?wrap.getBoundingClientRect():{left:0,top:0};
-    const cx=e.clientX-rect2.left, cy=e.clientY-rect2.top;
-    const db=window._deleteBtn;
-    if(Math.hypot(cx-db.x,cy-db.y)<=db.r+4){
-      _drawings.splice(db.idx,1);
-      _selectedIdx=-1; window._deleteBtn=null;
-      localStorage.setItem('td_drawings',JSON.stringify(_drawings));
-      _drawOverlay(); return;
-    }
-  }
-  // Check edit button click (position drawings)
-  if(window._editBtn){
-    const wrap=document.getElementById('binance-chart');
-    const rect2=wrap?wrap.getBoundingClientRect():{left:0,top:0};
-    const cx=e.clientX-rect2.left, cy=e.clientY-rect2.top;
-    const eb=window._editBtn;
-    if(Math.hypot(cx-eb.x,cy-eb.y)<=eb.r+4){ openPosModal(eb.idx); return; }
-  }
+function _onChartClick(e){
+  if(!_bchart||!_bCandles||_dragActive) return;
   const wrap=document.getElementById('binance-chart');
   if(!wrap) return;
   const rect=wrap.getBoundingClientRect();
   const x=e.clientX-rect.left, y=e.clientY-rect.top;
+
+  // Delete button
+  if(window._deleteBtn){
+    const db=window._deleteBtn;
+    if(Math.hypot(x-db.x,y-db.y)<=db.r+4){
+      _drawings.splice(db.idx,1); _selectedIdx=-1; window._deleteBtn=null;
+      localStorage.setItem('td_drawings',JSON.stringify(_drawings)); _drawOverlay(); return;
+    }
+  }
+  // Edit button (position)
+  if(window._editBtn){
+    const eb=window._editBtn;
+    if(Math.hypot(x-eb.x,y-eb.y)<=eb.r+4){ openPosModal(eb.idx); return; }
+  }
+
   const price=_bCandles.coordinateToPrice(y);
   const time=_bchart.timeScale().coordinateToTime(x);
 
   if(_chartTool==='cursor'){
-    const hit=_hitTest(x,y);
-    _selectedIdx=hit;
-    _drawOverlay();
-    return;
+    _selectedIdx=_hitTest(x,y); _drawOverlay(); return;
   }
-  if(!price||price<=0) return;
-
-  if(_chartTool==='hline') {
+  if(_chartTool==='hline'){
+    if(!price||price<=0) return;
     _userLines.push({price:Math.round(price),color:'#58a6ff',label:''});
-    _saveUserLines(); _renderUserLines();
-    return;
+    _saveUserLines(); _renderUserLines(); return;
   }
-  if(_chartTool==='fib') {
-    if(!_toolState.p1) { _toolState.p1={price,time}; }
-    else { _drawings.push({type:'fib',p1:_toolState.p1,p2:{price,time}}); localStorage.setItem('td_drawings',JSON.stringify(_drawings)); _toolState={}; _drawOverlay(); }
-    return;
-  }
-  if(_chartTool==='measure') {
-    if(!_toolState.p1) { _toolState.p1={price,time}; }
-    else { _drawings.push({type:'measure',p1:_toolState.p1,p2:{price,time}}); localStorage.setItem('td_drawings',JSON.stringify(_drawings)); _toolState={}; _drawOverlay(); }
-    return;
-  }
-  if(_chartTool==='long'||_chartTool==='short') {
-    if(!_toolState.p1) { _toolState.p1={price,time}; }
-    else {
-      const entry=_toolState.p1.price, side=_chartTool, isLong=side==='long';
-      const diff=Math.abs(price-entry);
-      // Left anchor = first click time; right anchor = second click time (horizontal extent)
-      const t1=_toolState.p1.time, t2=time;
-      const timeStart=t1&&t2?(Math.min(t1,t2)===t1?t1:t2):t1||t2;
-      const timeEnd=t1&&t2?(Math.max(t1,t2)===t2?t2:t1):null;
-      _drawings.push({type:'position',side,entry,sl:isLong?entry-diff:entry+diff,tp:isLong?entry+diff*2:entry-diff*2,time:timeStart,timeEnd});
+  if(_chartTool==='fib'||_chartTool==='measure'){
+    if(!price||price<=0) return;
+    if(!_toolState.p1){ _toolState.p1={price,time}; _drawOverlay(); }
+    else{
+      _drawings.push({type:_chartTool,p1:_toolState.p1,p2:{price,time}});
       localStorage.setItem('td_drawings',JSON.stringify(_drawings));
-      _toolState={};
-      _selectedIdx=_drawings.length-1; // auto-select the new position
-      setChartTool('cursor');           // switch to cursor so no new positions are created
-      _drawOverlay();
+      _selectedIdx=_drawings.length-1;
+      _toolState={}; setChartTool('cursor');
     }
     return;
   }
+  // long/short handled in mousedown
 }
 
 // ══════════════════════════════════════════════════
 // CANVAS OVERLAY RENDERER
 // ══════════════════════════════════════════════════
-function _drawOverlay() {
+function _drawOverlay(){
   if(!_bOverlay||!_bchart||!_bCandles) return;
   const W=_bOverlay.width, H=_bOverlay.height;
   const ctx=_bOverlay.getContext('2d');
   ctx.clearRect(0,0,W,H);
-
-  const ts=_bchart.timeScale();
-  const ps=_bCandles;
-
-  function priceY(p){ const y=ps.priceToCoordinate(p); return y; }
-  function timeX(t){ const x=ts.timeToCoordinate(t); return x; }
+  const priceY=p=>_bCandles.priceToCoordinate(p);
+  const timeX=t=>_bchart.timeScale().timeToCoordinate(t);
 
   // ── Pool zones ──
-  if(_showPoolZones && _bCandleData.length && typeof POOLS!=='undefined') {
+  if(_showPoolZones&&_bCandleData.length&&typeof POOLS!=='undefined'){
     const modeKey=typeof currentMode!=='undefined'?currentMode:'scalping';
     const modeData=POOLS[modeKey]||POOLS.scalping||POOLS[Object.keys(POOLS)[0]]||{};
     const INTCOL={
-      red:   {fill:'rgba(248,81,73,0.12)', stroke:'rgba(248,81,73,0.7)'},
-      orange:{fill:'rgba(224,123,0,0.12)', stroke:'rgba(224,123,0,0.7)'},
-      yellow:{fill:'rgba(210,153,34,0.12)',stroke:'rgba(210,153,34,0.7)'},
-      green: {fill:'rgba(63,185,80,0.12)', stroke:'rgba(63,185,80,0.7)'}
+      red:   {fill:'rgba(248,81,73,0.10)',stroke:'rgba(248,81,73,0.7)'},
+      orange:{fill:'rgba(224,123,0,0.10)',stroke:'rgba(224,123,0,0.7)'},
+      yellow:{fill:'rgba(210,153,34,0.10)',stroke:'rgba(210,153,34,0.7)'},
+      green: {fill:'rgba(63,185,80,0.10)',stroke:'rgba(63,185,80,0.7)'}
     };
-    // Collect pools from ALL TFs that match current TF
     const allPools=[];
-    // Check current TF and also fallback to all TFs
-    const tfKeys=Object.keys(modeData);
-    for(const tf of tfKeys){
+    Object.keys(modeData).forEach(tf=>{
       const td=modeData[tf]||{};
-      [...(td.long_pools||[]).map(p=>({...p,side:'long',tf})),
-       ...(td.short_pools||[]).map(p=>({...p,side:'short',tf}))]
-      .forEach(p=>allPools.push(p));
-    }
+      (td.long_pools||[]).forEach(p=>allPools.push({...p,side:'long',tf}));
+      (td.short_pools||[]).forEach(p=>allPools.push({...p,side:'short',tf}));
+    });
     allPools.forEach(pool=>{
       if(!pool.high||!pool.low) return;
-      const col=INTCOL[pool.intensity]||{fill:'rgba(100,100,100,0.1)',stroke:'rgba(150,150,150,0.5)'};
-      // Find formation candle (last touch of zone going backwards)
+      const col=INTCOL[pool.intensity]||{fill:'rgba(100,100,100,0.08)',stroke:'rgba(150,150,150,0.5)'};
       let startIdx=0;
       for(let i=_bCandleData.length-1;i>=0;i--){
         const c=_bCandleData[i];
-        if(c.low<=pool.high && c.high>=pool.low){startIdx=i;break;}
+        if(c.low<=pool.high&&c.high>=pool.low){startIdx=i;break;}
       }
-      const startCandle=_bCandleData[startIdx];
-      const lastCandle=_bCandleData[_bCandleData.length-1];
-      const x1=timeX(startCandle.time);
-      const x2=timeX(lastCandle.time)+40; // extend slightly past last candle
-      const y1=priceY(pool.high);
-      const y2=priceY(pool.low);
-      if(x1===null||x2===null||y1===null||y2===null) return;
-      // Fill
+      const sc=_bCandleData[startIdx], lc=_bCandleData[_bCandleData.length-1];
+      const x1=timeX(sc.time), x2=timeX(lc.time);
+      const y1=priceY(pool.high), y2=priceY(pool.low);
+      if(x1==null||x2==null||y1==null||y2==null) return;
+      const xe=Math.min(W,(x2??0)+50);
       ctx.fillStyle=col.fill;
-      ctx.fillRect(x1,Math.min(y1,y2),x2-x1,Math.abs(y2-y1));
-      // Top line (solid)
+      ctx.fillRect(x1,Math.min(y1,y2),xe-x1,Math.abs(y2-y1));
       ctx.strokeStyle=col.stroke; ctx.lineWidth=1.5; ctx.setLineDash([]);
-      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y1); ctx.stroke();
-      // Bottom line (dashed)
-      ctx.strokeStyle=col.stroke; ctx.lineWidth=1; ctx.setLineDash([4,3]);
-      ctx.beginPath(); ctx.moveTo(x1,y2); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(xe,y1); ctx.stroke();
+      ctx.lineWidth=1; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(x1,y2); ctx.lineTo(xe,y2); ctx.stroke();
       ctx.setLineDash([]);
-      // Label
-      const lbl=(pool.side==='long'?'▲ ':'▼ ')+(pool.label||'').substring(0,20);
       ctx.fillStyle=col.stroke; ctx.font='bold 10px monospace';
-      ctx.fillText(lbl, x2+4, Math.min(y1,y2)+10);
+      ctx.fillText((pool.side==='long'?'▲ ':'▼ ')+(pool.label||'').substring(0,20),xe+4,Math.min(y1,y2)+10);
     });
   }
 
-  // ── Saved drawings (highlight selected/hovered) ──
+  // ── Saved drawings ──
   (_drawings||[]).forEach((d,i)=>{
-    const isSel=i===_selectedIdx;
-    const isHov=i===_hoverIdx&&!isSel;
-    if(isSel||isHov){ ctx.save(); ctx.shadowColor='rgba(88,166,255,0.6)'; ctx.shadowBlur=8; }
-    _renderDrawing(ctx,d,W,H,priceY,timeX,isSel);
-    if(isSel||isHov) ctx.restore();
-    // Delete button (×) on selected drawing
-    if(isSel){
-      const bx=_getDrawingBounds(d,priceY,timeX,W,H);
-      if(bx){
-        const bx2=bx.x2+4, by2=bx.y1-4;
-        ctx.fillStyle='#f85149'; ctx.strokeStyle='#0d1117'; ctx.lineWidth=1;
-        ctx.beginPath(); ctx.arc(bx2+8,by2-8,8,0,Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle='#fff'; ctx.font='bold 11px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('×',bx2+8,by2-8);
-        ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-        // Store delete button coords for click detection
-        window._deleteBtn={x:bx2+8,y:by2-8,r:8,idx:i};
-        // Show edit pencil button for positions
-        if(d.type==='position'){
-          const ex=bx2+24, ey=by2-8;
-          ctx.fillStyle='#e3b341'; ctx.strokeStyle='#0d1117'; ctx.lineWidth=1;
-          ctx.beginPath(); ctx.arc(ex,ey,8,0,Math.PI*2); ctx.fill(); ctx.stroke();
-          ctx.fillStyle='#0d1117'; ctx.font='bold 10px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
-          ctx.fillText('✏',ex,ey);
-          ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-          window._editBtn={x:ex,y:ey,r:8,idx:i};
-        } else { window._editBtn=null; }
+    const sel=i===_selectedIdx, hov=i===_hoverIdx&&!sel;
+    if(sel||hov){ctx.save();ctx.shadowColor='rgba(88,166,255,0.5)';ctx.shadowBlur=6;}
+    _renderDrawing(ctx,d,W,H,priceY,timeX,sel);
+    if(sel||hov) ctx.restore();
+    if(sel){
+      // Delete × button
+      let bx2=W-10, by1=0;
+      if(d.type==='fib'||d.type==='measure'){
+        const x2=timeX(d.p2.time)??W;
+        bx2=Math.min(W-10,x2+60);
+        by1=Math.min(priceY(d.p1.price)??0,priceY(d.p2.price)??0)-4;
+      } else if(d.type==='position'){
+        const rawXE=d.timeEnd?timeX(d.timeEnd):null;
+        const rawXS=d.time?timeX(d.time):null;
+        bx2=Math.min(W-2,rawXE??(Math.min(W-2,(rawXS??0)+300)));
+        by1=Math.min(priceY(d.tp)??0,priceY(d.entry)??0,priceY(d.sl)??0)-4;
       }
+      // × delete
+      ctx.fillStyle='#f85149'; ctx.strokeStyle='#0d1117'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(bx2+8,by1-8,8,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 11px monospace';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('×',bx2+8,by1-8);
+      window._deleteBtn={x:bx2+8,y:by1-8,r:8,idx:i};
+      // ✏ edit (positions only)
+      if(d.type==='position'){
+        ctx.fillStyle='#e3b341';
+        ctx.beginPath(); ctx.arc(bx2+24,by1-8,8,0,Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#0d1117'; ctx.fillText('✏',bx2+24,by1-8);
+        window._editBtn={x:bx2+24,y:by1-8,r:8,idx:i};
+      } else { window._editBtn=null; }
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     }
   });
-  // Clear delete button if nothing selected
-  if(_selectedIdx<0) window._deleteBtn=null;
+  if(_selectedIdx<0){window._deleteBtn=null;window._editBtn=null;}
 
-  // ── In-progress tool preview ──
-  if(_toolState.p1 && _toolState.mousePrice && _toolState.mouseX!=null) {
-    const preview={
-      type:_chartTool,
-      p1:_toolState.p1,
-      p2:{price:_toolState.mousePrice, time:_toolState.mouseTime}
-    };
-    if(_chartTool==='long'||_chartTool==='short'){
-      const entry=_toolState.p1.price;
-      const diff=Math.abs(_toolState.mousePrice-entry);
-      const isLong=_chartTool==='long';
-      preview.entry=entry; preview.sl=isLong?entry-diff:entry+diff;
-      preview.tp=isLong?entry+diff*2:entry-diff*2;
-      preview.side=_chartTool; preview.time=_toolState.p1.time;
-    }
+  // ── Position drag preview ──
+  if(_toolState._prev){
     ctx.globalAlpha=0.75;
-    _renderDrawing(ctx,preview,W,H,priceY,timeX);
+    _renderDrawing(ctx,_toolState._prev,W,H,priceY,timeX,false);
     ctx.globalAlpha=1;
+  }
+
+  // ── Fib/measure first-click preview ──
+  if(_toolState.p1&&_toolState.mousePrice!=null&&_toolState.mouseX!=null){
+    const preview={type:_chartTool,p1:_toolState.p1,p2:{price:_toolState.mousePrice,time:_toolState.mouseTime}};
+    ctx.globalAlpha=0.6;
+    _renderDrawing(ctx,preview,W,H,priceY,timeX,false);
+    ctx.globalAlpha=1;
+    // Crosshair dot
+    const py=priceY(_toolState.mousePrice);
+    const px=timeX(_toolState.mouseTime);
+    if(py!=null&&px!=null){
+      ctx.fillStyle='#58a6ff';
+      ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill();
+    }
   }
 }
 
-function _getDrawingBounds(d,priceY,timeX,W,H){
-  if(!d) return null;
-  try{
-    if(d.type==='fib'||d.type==='measure'){
-      const x1=timeX(d.p1.time),x2=timeX(d.p2.time);
-      const y1=priceY(d.p1.price),y2=priceY(d.p2.price);
-      if(x1===null||x2===null||y1===null||y2===null) return null;
-      return{x1:Math.min(x1,x2),x2:Math.max(x1,x2),y1:Math.min(y1,y2),y2:Math.max(y1,y2)};
-    }
-    if(d.type==='position'){
-      const yE=priceY(d.entry),yT=priceY(d.tp),yS=priceY(d.sl);
-      const rawXSb=d.time!=null?timeX(d.time):null;
-      const rawXEb=d.timeEnd!=null?timeX(d.timeEnd):null;
-      const xS=Math.max(0,rawXSb??0);
-      const xEnd=Math.min(W,rawXEb??(xS+300));
-      if(yE===null) return null;
-      return{x1:xS,x2:xEnd,y1:Math.min(yE,yT??yE,yS??yE),y2:Math.max(yE,yT??yE,yS??yE)};
-    }
-  }catch(e){}
-  return null;
-}
-
-function _renderDrawing(ctx,d,W,H,priceY,timeX,selected=false){
+function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
   if(!d||!d.type) return;
-  const x1=timeX(d.p1?.time||d.time||0);
-  const x2=d.p2?timeX(d.p2.time):W;
 
   if(d.type==='fib'){
-    const high=Math.max(d.p1.price,d.p2.price);
-    const low=Math.min(d.p1.price,d.p2.price);
-    const range=high-low;
-    const levels=[0,0.236,0.382,0.5,0.618,0.786,1];
-    const cols=['#f85149','#f0883e','#e3b341','#3fb950','#58a6ff','#bc8cff','#f85149'];
-    const lx1=Math.min(x1??0,x2??W), lx2=Math.max(x1??0,x2??W);
-    levels.forEach((lvl,i)=>{
-      const price=high-range*lvl;
-      const y=priceY(price);
-      if(y===null) return;
-      ctx.strokeStyle=cols[i]; ctx.lineWidth=1; ctx.setLineDash([4,3]);
-      ctx.beginPath(); ctx.moveTo(lx1,y); ctx.lineTo(lx2,y); ctx.stroke();
+    const x1=timeX(d.p1.time), x2=timeX(d.p2.time);
+    if(x1==null||x2==null) return;
+    const lx1=Math.min(x1,x2), lx2=Math.max(x1,x2);
+    const hi=Math.max(d.p1.price,d.p2.price), lo=Math.min(d.p1.price,d.p2.price), rng=hi-lo;
+    const FIB_LEVELS=[[0,'#f85149'],[.236,'#f0883e'],[.382,'#e3b341'],[.5,'#3fb950'],[.618,'#58a6ff'],[.786,'#bc8cff'],[1,'#f85149']];
+    FIB_LEVELS.forEach(([lvl,col])=>{
+      const price=hi-rng*lvl, py=priceY(price);
+      if(py==null) return;
+      ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.moveTo(lx1,py); ctx.lineTo(lx2,py); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle=cols[i]; ctx.font='10px monospace';
-      ctx.fillText(`${(lvl*100).toFixed(1)}%  $${Math.round(price).toLocaleString()}`, lx2+4, y-2);
+      ctx.fillStyle=col; ctx.font='bold 10px monospace';
+      ctx.fillText(`${(lvl*100).toFixed(1)}%  $${Math.round(price).toLocaleString()}`,lx2+4,py-2);
     });
-    // Vertical anchors
-    ctx.strokeStyle='rgba(88,166,255,0.4)'; ctx.lineWidth=1; ctx.setLineDash([2,2]);
-    if(x1!=null){ctx.beginPath();ctx.moveTo(x1,0);ctx.lineTo(x1,H);ctx.stroke();}
-    if(x2!=null){ctx.beginPath();ctx.moveTo(x2,0);ctx.lineTo(x2,H);ctx.stroke();}
-    ctx.setLineDash([]);
+    if(selected){
+      [[x1,d.p1.price],[x2,d.p2.price]].forEach(([px,pp])=>{
+        const py=priceY(pp);
+        if(px==null||py==null) return;
+        ctx.fillStyle='#58a6ff'; ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.arc(px,py,5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      });
+    }
   }
 
   else if(d.type==='measure'){
+    const x1=timeX(d.p1.time), x2=timeX(d.p2.time);
     const y1=priceY(d.p1.price), y2=priceY(d.p2.price);
-    if(y1===null||y2===null||x1===null||x2===null) return;
-    const priceDiff=d.p2.price-d.p1.price;
-    const pct=(priceDiff/d.p1.price*100).toFixed(2);
-    const col=priceDiff>=0?'rgba(63,185,80,0.6)':'rgba(248,81,73,0.6)';
-    const colS=priceDiff>=0?'#3fb950':'#f85149';
-    // Box
+    if(x1==null||x2==null||y1==null||y2==null) return;
+    const diff=d.p2.price-d.p1.price, pct=(diff/d.p1.price*100).toFixed(2);
+    const col=diff>=0?'rgba(63,185,80,0.55)':'rgba(248,81,73,0.55)';
+    const cols=diff>=0?'#3fb950':'#f85149';
     ctx.fillStyle=col;
     ctx.fillRect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1));
-    ctx.strokeStyle=colS; ctx.lineWidth=1.5; ctx.setLineDash([]);
+    ctx.strokeStyle=cols; ctx.lineWidth=1.5; ctx.setLineDash([]);
     ctx.strokeRect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1));
-    // Label
-    const sign=priceDiff>=0?'+':'';
-    const label=`${sign}${pct}%  ${sign}$${Math.round(Math.abs(priceDiff)).toLocaleString()}`;
-    ctx.fillStyle=colS; ctx.font='bold 11px monospace';
-    ctx.fillText(label, Math.min(x1,x2)+4, Math.min(y1,y2)-4);
+    const sign=diff>=0?'+':'';
+    ctx.fillStyle=cols; ctx.font='bold 11px monospace';
+    ctx.fillText(`${sign}${pct}%  ${sign}$${Math.round(Math.abs(diff)).toLocaleString()}`,Math.min(x1,x2)+4,Math.min(y1,y2)-4);
   }
 
   else if(d.type==='position'){
     const isLong=d.side==='long';
-    const yE=priceY(d.entry), ySL=priceY(d.sl), yTP=priceY(d.tp);
-    if(yE===null||ySL===null||yTP===null) return;
-    // Clamp to canvas — never extend to 0 or W unless explicitly anchored there
+    const yE=priceY(d.entry), yT=priceY(d.tp), yS=priceY(d.sl);
+    if(yE==null||yT==null||yS==null) return;
     const rawXS=d.time!=null?timeX(d.time):null;
     const rawXE=d.timeEnd!=null?timeX(d.timeEnd):null;
-    if(rawXS===null&&rawXE===null) return; // no anchor, skip
-    const xS=Math.max(0, rawXS??0);
-    const xE=Math.min(W, rawXE??Math.min(W, (rawXS??0)+300));
+    const xS=Math.max(0,rawXS??0);
+    const xE=Math.min(W-2,rawXE??(Math.min(W-2,xS+300)));
     if(xE<=xS) return;
     const risk=Math.abs(d.entry-d.sl), reward=Math.abs(d.tp-d.entry);
-    const rr=(risk>0?reward/risk:0).toFixed(2);
-    const pctSL=((d.sl-d.entry)/d.entry*100).toFixed(2);
+    const rr=risk>0?(reward/risk).toFixed(2):'∞';
     const pctTP=((d.tp-d.entry)/d.entry*100).toFixed(2);
+    const pctSL=((d.sl-d.entry)/d.entry*100).toFixed(2);
 
-    // TP zone fill
+    // Zone fills
     ctx.fillStyle=isLong?'rgba(63,185,80,0.13)':'rgba(248,81,73,0.13)';
-    ctx.fillRect(xS,Math.min(yE,yTP),xE-xS,Math.abs(yTP-yE));
-    // SL zone fill
+    ctx.fillRect(xS,Math.min(yE,yT),xE-xS,Math.abs(yT-yE));
     ctx.fillStyle=isLong?'rgba(248,81,73,0.13)':'rgba(63,185,80,0.13)';
-    ctx.fillRect(xS,Math.min(yE,ySL),xE-xS,Math.abs(ySL-yE));
+    ctx.fillRect(xS,Math.min(yE,yS),xE-xS,Math.abs(yS-yE));
 
-    // Entry line
-    ctx.strokeStyle='#e3b341'; ctx.lineWidth=2; ctx.setLineDash([]);
+    // Lines
+    ctx.lineWidth=2; ctx.setLineDash([]);
+    ctx.strokeStyle='#e3b341';
     ctx.beginPath(); ctx.moveTo(xS,yE); ctx.lineTo(xE,yE); ctx.stroke();
-    // TP line
-    ctx.strokeStyle='#3fb950'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
-    ctx.beginPath(); ctx.moveTo(xS,yTP); ctx.lineTo(xE,yTP); ctx.stroke();
-    // SL line
-    ctx.strokeStyle='#f85149'; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(xS,ySL); ctx.lineTo(xE,ySL); ctx.stroke();
+    ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
+    ctx.strokeStyle='#3fb950';
+    ctx.beginPath(); ctx.moveTo(xS,yT); ctx.lineTo(xE,yT); ctx.stroke();
+    ctx.strokeStyle='#f85149';
+    ctx.beginPath(); ctx.moveTo(xS,yS); ctx.lineTo(xE,yS); ctx.stroke();
     ctx.setLineDash([]);
 
-    // TV-style label tags on right edge
-    function drawTag(y2,col,txt){
-      const tw=ctx.measureText(txt).width+12;
+    // TV-style right-edge tags
+    function tag(y2,col,txt){
+      ctx.font='bold 10px monospace';
+      const tw=ctx.measureText(txt).width+14;
       ctx.fillStyle=col;
       ctx.beginPath();
-      ctx.roundRect(xE-tw-2,y2-9,tw+4,18,3);
+      if(ctx.roundRect) ctx.roundRect(xE-tw,y2-9,tw,18,3);
+      else ctx.rect(xE-tw,y2-9,tw,18);
       ctx.fill();
-      ctx.fillStyle='#fff'; ctx.font='bold 10px monospace';
-      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(txt,xE-tw/2,y2);
       ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     }
     const tpSign=pctTP>=0?'+':'';
     const slSign=pctSL>=0?'+':'';
-    drawTag(yTP,'#3fb950',`TP  ${tpSign}${pctTP}%  $${Math.round(d.tp).toLocaleString()}`);
-    drawTag(yE,'#b8860b',`${isLong?'LONG':'SHORT'}  R:R ${rr}  $${Math.round(d.entry).toLocaleString()}`);
-    drawTag(ySL,'#c0392b',`SL  ${slSign}${pctSL}%  $${Math.round(d.sl).toLocaleString()}`);
+    tag(yT,'#2ea043',`TP  ${tpSign}${pctTP}%  $${Math.round(d.tp).toLocaleString()}`);
+    tag(yE,'#9e7c0a',`${isLong?'LONG':'SHORT'}  R:R ${rr}  $${Math.round(d.entry).toLocaleString()}`);
+    tag(yS,'#b93038',`SL  ${slSign}${pctSL}%  $${Math.round(d.sl).toLocaleString()}`);
 
-    // Drag handles (circles) — shown when selected
+    // Handles (only when selected)
     if(selected){
-      function handle(hx,hy,col){
+      function h(hx,hy,col){
         ctx.fillStyle=col; ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
         ctx.beginPath(); ctx.arc(hx,hy,6,0,Math.PI*2); ctx.fill(); ctx.stroke();
       }
-      handle(xS,yE,'#e3b341');      // entry left anchor
-      handle(xE,yE,'#e3b341');      // entry right (extends timeEnd)
-      handle(xE,yTP,'#3fb950');     // tp right drag
-      handle(xE,ySL,'#f85149');     // sl right drag
+      h(xS,yE,'#e3b341');   // left entry anchor
+      h(xE,yE,'#e3b341');   // right entry / timeEnd
+      h(xE,yT,'#3fb950');   // right TP drag
+      h(xE,yS,'#f85149');   // right SL drag
     }
   }
 }
-
-// ════════════════════════════════════════════════════
-// FASE 2 — INDICADORES TÉCNICOS
-// ════════════════════════════════════════════════════
-
-function _sma(c,n){return c.map((_,i)=>{if(i<n-1)return null;let s=0;for(let j=i-n+1;j<=i;j++)s+=c[j];return s/n;});}
-function _ema(c,n){const k=2/(n+1),o=new Array(c.length).fill(null);for(let i=0;i<c.length;i++){o[i]=i===0?c[i]:c[i]*k+o[i-1]*(1-k);}for(let i=0;i<Math.min(n-1,c.length);i++)o[i]=null;return o;}
-function _bb(c,n=20,m=2){const s=_sma(c,n);return c.map((_,i)=>{if(s[i]===null)return{upper:null,lower:null,mid:null};let v=0;for(let j=i-n+1;j<=i;j++)v+=(c[j]-s[i])**2;const sd=Math.sqrt(v/n);return{upper:s[i]+m*sd,lower:s[i]-m*sd,mid:s[i]};});}
-function _rsi(c,n=14){const o=new Array(c.length).fill(null);let ag=0,al=0;for(let i=1;i<c.length;i++){const d=c[i]-c[i-1],g=d>0?d:0,l=d<0?-d:0;if(i<=n){ag+=g/n;al+=l/n;}else{ag=(ag*(n-1)+g)/n;al=(al*(n-1)+l)/n;}if(i>=n)o[i]=100-(100/(1+(al===0?1e10:ag/al)));}return o;}
-function _macd(c,f=12,s=26,sg=9){const ef=_ema(c,f),es=_ema(c,s);const ml=c.map((_,i)=>(ef[i]!==null&&es[i]!==null)?ef[i]-es[i]:null);const sl=_ema(ml.map(v=>v??0),sg);return c.map((_,i)=>({macd:ml[i],signal:sl[i],hist:(ml[i]!==null&&sl[i]!==null)?ml[i]-sl[i]:null}));}
-
-let _indSeries = {};
-function _clearIndicatorSeries(){Object.values(_indSeries).forEach(s=>{try{_bchart.removeSeries(s);}catch(e){}});_indSeries={};}
-
-function _applyIndicators() {
-  if (!_bchart || !_bCandleData.length) return;
-  _clearIndicatorSeries();
-  const hasRSI=_indCfg.rsi, hasMACD=_indCfg.macd;
-  const sub=(hasRSI?1:0)+(hasMACD?1:0);
-  const mainBot=sub===0?0.22:sub===1?0.36:0.50;
-  _bchart.priceScale('right').applyOptions({scaleMargins:{top:0.06,bottom:mainBot}});
-  const times=_bCandleData.map(c=>c.time);
-  const closes=_bCandleData.map(c=>c.close);
-  const toS=(arr)=>arr.map((v,i)=>v!==null?{time:times[i],value:v}:null).filter(Boolean);
-  const base={priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false};
-
-  if(_indCfg.ma20){const s=_bchart.addLineSeries({...base,color:'#e3b341',lineWidth:1});s.setData(toS(_sma(closes,20)));_indSeries.ma20=s;}
-  if(_indCfg.ma50){const s=_bchart.addLineSeries({...base,color:'#f0883e',lineWidth:1});s.setData(toS(_sma(closes,50)));_indSeries.ma50=s;}
-  if(_indCfg.ema21){const s=_bchart.addLineSeries({...base,color:'#bc8cff',lineWidth:1,lineStyle:1});s.setData(toS(_ema(closes,21)));_indSeries.ema21=s;}
-  if(_indCfg.bb){
-    const v=_bb(closes,20,2);
-    const opts={...base,lineWidth:1};
-    const su=_bchart.addLineSeries({...opts,color:'rgba(88,166,255,0.6)'});
-    const sm=_bchart.addLineSeries({...opts,color:'rgba(88,166,255,0.3)',lineStyle:2});
-    const sl=_bchart.addLineSeries({...opts,color:'rgba(88,166,255,0.6)'});
-    su.setData(v.map((x,i)=>x.upper!==null?{time:times[i],value:x.upper}:null).filter(Boolean));
-    sm.setData(v.map((x,i)=>x.mid!==null?{time:times[i],value:x.mid}:null).filter(Boolean));
-    sl.setData(v.map((x,i)=>x.lower!==null?{time:times[i],value:x.lower}:null).filter(Boolean));
-    _indSeries.bbU=su;_indSeries.bbM=sm;_indSeries.bbL=sl;
-  }
-  if(hasRSI){
-    const rsiTop=hasMACD?0.56:0.67,rsiBot=hasMACD?0.22:0.05;
-    const rs=_bchart.addLineSeries({...base,color:'#58a6ff',lineWidth:1,priceScaleId:'rsi',lastValueVisible:true});
-    _bchart.priceScale('rsi').applyOptions({scaleMargins:{top:rsiTop,bottom:rsiBot},borderColor:'#21262d'});
-    rs.setData(toS(_rsi(closes,14)));
-    const mkL=(val,col)=>{const s=_bchart.addLineSeries({...base,color:col,lineWidth:1,lineStyle:2,priceScaleId:'rsi'});s.setData([{time:times[0],value:val},{time:times[times.length-1],value:val}]);return s;};
-    _indSeries.rsi=rs;_indSeries.rsi70=mkL(70,'rgba(248,81,73,0.4)');_indSeries.rsi30=mkL(30,'rgba(63,185,80,0.4)');
-  }
-  if(hasMACD){
-    const mv=_macd(closes,12,26,9);
-    const mlo=_bchart.addLineSeries({...base,color:'#58a6ff',lineWidth:1,priceScaleId:'macd'});
-    const mso=_bchart.addLineSeries({...base,color:'#f0883e',lineWidth:1,priceScaleId:'macd'});
-    const mho=_bchart.addHistogramSeries({priceScaleId:'macd',priceLineVisible:false,lastValueVisible:false});
-    _bchart.priceScale('macd').applyOptions({scaleMargins:{top:0.78,bottom:0.02},borderColor:'#21262d'});
-    mlo.setData(mv.map((v,i)=>v.macd!==null?{time:times[i],value:v.macd}:null).filter(Boolean));
-    mso.setData(mv.map((v,i)=>v.signal!==null?{time:times[i],value:v.signal}:null).filter(Boolean));
-    mho.setData(mv.map((v,i)=>v.hist!==null?{time:times[i],value:v.hist,color:v.hist>=0?'rgba(63,185,80,0.6)':'rgba(248,81,73,0.6)'}:null).filter(Boolean));
-    _indSeries.macdL=mlo;_indSeries.macdS=mso;_indSeries.macdH=mho;
-  }
-}
-
 
 // ── Studies modal (indicators — Fase 2 will wire them) ──
 const CHART_INDICATORS = [
@@ -6845,3 +6757,4 @@ async function runBacktestAllTF() {
 
 </body>
 </html>
+                                                                                                                                                                                                                                                                                                                            
