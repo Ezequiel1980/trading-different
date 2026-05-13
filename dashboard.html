@@ -5377,7 +5377,7 @@ function initBinanceChart() {
               const r=_posRole(dh,x,y);
               wrapEl.style.cursor=
                 r==='tp'||r==='sl'||r==='entry'?'ns-resize':
-                r==='left'?'ew-resize':
+                r==='left'||r==='right'?'ew-resize':
                 r==='body'?'move':'grab';
             } else { wrapEl.style.cursor='grab'; }
           } else { wrapEl.style.cursor='default'; }
@@ -5694,9 +5694,6 @@ function _coordToTimeSafe(x){
   return Math.round(last.time+extraBars*interval);
 }
 
-// ── Position right edge = chart right boundary ──
-function _posXE(W){ return W-68; } // leave room for price axis
-
 // ── Hit test: returns drawing index or -1 ──
 function _hitTest(x,y){
   if(!_bchart||!_bCandles) return -1;
@@ -5726,17 +5723,18 @@ function _hitTest(x,y){
       const yE=_bCandles.priceToCoordinate(d.entry);
       const yT=_bCandles.priceToCoordinate(d.tp);
       const yS=_bCandles.priceToCoordinate(d.sl);
-      const rawXS=d.time!=null?_bchart.timeScale().timeToCoordinate(d.time):0;
-      const xS=rawXS??-9999; // may be off-screen left
-      const xE=_posXE(W);
-      const inX=x>=xS-4&&x<=xE+12;
-      if(yT!=null&&Math.abs(y-yT)<=10&&inX) return i;
-      if(yE!=null&&Math.abs(y-yE)<=10&&inX) return i;
-      if(yS!=null&&Math.abs(y-yS)<=10&&inX) return i;
+      // Both edges are real timestamps — timeToCoordinate works for future too
+      const xS=d.time!=null?(_bchart.timeScale().timeToCoordinate(d.time)??-9999):-9999;
+      const xE=d.timeEnd!=null?(_bchart.timeScale().timeToCoordinate(d.timeEnd)??9999):9999;
+      const visL=Math.max(-10,xS), visR=Math.min(W+10,xE);
+      if(visR<visL) continue;
+      const inX=x>=visL-4&&x<=visR+12;
+      if(inX&&yT!=null&&Math.abs(y-yT)<=10) return i;
+      if(inX&&yE!=null&&Math.abs(y-yE)<=10) return i;
+      if(inX&&yS!=null&&Math.abs(y-yS)<=10) return i;
       if(inX&&yE!=null&&yT!=null&&y>Math.min(yE,yT)&&y<Math.max(yE,yT)) return i;
       if(inX&&yE!=null&&yS!=null&&y>Math.min(yE,yS)&&y<Math.max(yE,yS)) return i;
-      // Left anchor handle
-      if(yE!=null&&rawXS!=null&&Math.hypot(x-rawXS,y-yE)<=10) return i;
+      if(yE!=null&&Math.hypot(x-xS,y-yE)<=10) return i;
     }
   }
   return -1;
@@ -5749,17 +5747,16 @@ function _posRole(d,x,y){
   const yE=_bCandles.priceToCoordinate(d.entry);
   const yT=_bCandles.priceToCoordinate(d.tp);
   const yS=_bCandles.priceToCoordinate(d.sl);
-  const rawXS=d.time!=null?_bchart.timeScale().timeToCoordinate(d.time):0;
-  const xS=rawXS??0;
-  const xE=_posXE(W);
+  const xS=d.time!=null?(_bchart.timeScale().timeToCoordinate(d.time)??0):0;
+  const xE=d.timeEnd!=null?(_bchart.timeScale().timeToCoordinate(d.timeEnd)??W):W;
   const inX=x>=xS-4&&x<=xE+10;
-  // Left anchor (move whole position)
+  // Right edge handle → resize width
+  if(Math.abs(x-xE)<=10&&y>Math.min(yT??0,yS??0)-10&&y<Math.max(yT??H,yS??H)+10) return 'right';
+  // Left anchor → move whole
   if(yE!=null&&Math.hypot(x-xS,y-yE)<=10) return 'left';
-  // TP / SL / Entry lines — drag vertically
   if(inX&&yT!=null&&Math.abs(y-yT)<=10) return 'tp';
   if(inX&&yE!=null&&Math.abs(y-yE)<=10) return 'entry';
   if(inX&&yS!=null&&Math.abs(y-yS)<=10) return 'sl';
-  // Zone bodies — drag whole position
   if(inX&&yE!=null&&yT!=null&&y>Math.min(yE,yT)&&y<Math.max(yE,yT)) return 'body';
   if(inX&&yE!=null&&yS!=null&&y>Math.min(yE,yS)&&y<Math.max(yE,yS)) return 'body';
   return null;
@@ -5801,19 +5798,20 @@ function _onChartMouseDown(e){
       const tp=isLong?Math.max(entryP,target):Math.min(entryP,target);
       const sl=isLong?entryP-(tp-entryP):entryP+(entryP-tp);
       const endT=_bchart.timeScale().coordinateToTime(cx)||entryT;
-      _toolState._prev={type:'position',side,entry:entryP,tp,sl,time:entryT};
+      _toolState._prev={type:'position',side,entry:entryP,tp,sl,time:entryT,timeEnd:_coordToTimeSafe(cx)||entryT};
       _drawOverlay();
     }
     function onUp(ev){
       document.removeEventListener('mousemove',onMove,true);
       document.removeEventListener('mouseup',onUp,true);
       _toolState._prev=null;
-      const dy=ev.clientY-rect.top-my;
+      const dy=ev.clientY-rect.top-my, cx=ev.clientX-rect.left;
       if(Math.abs(dy)<6){_drawOverlay();return;}
       const dp=dy*ppp, target=entryP+dp;
       const tp=isLong?Math.max(entryP,target):Math.min(entryP,target);
       const sl=isLong?entryP-(tp-entryP):entryP+(entryP-tp);
-      _drawings.push({type:'position',side,entry:entryP,tp,sl,time:entryT});
+      const endT=_coordToTimeSafe(cx)||entryT;
+      _drawings.push({type:'position',side,entry:entryP,tp,sl,time:entryT,timeEnd:endT});
       localStorage.setItem('td_drawings',JSON.stringify(_drawings));
       _selectedIdx=_drawings.length-1;
       _suppressNextClick=true;
@@ -5869,17 +5867,29 @@ function _onChartMouseDown(e){
         dr.sl=pxToPrice(orig.sl,dy);
       } else if(r==='entry'){
         dr.entry=pxToPrice(orig.entry,dy);
-      } else if(r==='left'||r==='body'){ // move whole position freely
+      } else if(r==='right'){
+        // Resize right edge only
+        const origXE=orig.timeEnd!=null?_bchart.timeScale().timeToCoordinate(orig.timeEnd):null;
+        const origXS=orig.time!=null?_bchart.timeScale().timeToCoordinate(orig.time):0;
+        const baseE=origXE??(origXS+200);
+        const newXE=Math.max((origXS??0)+40, baseE+dx);
+        const newEnd=_coordToTimeSafe(newXE);
+        if(newEnd!=null) dr.timeEnd=newEnd;
+      } else { // body / left — move entire position freely in 2D
         const pD=pxToPrice(orig.entry,dy)-orig.entry;
         dr.entry=orig.entry+pD;
         dr.sl=orig.sl+pD;
         dr.tp=orig.tp+pD;
-        // Move horizontally: get original xS and shift by dx
+        // Horizontal: shift both anchors by same dx
         const origXS=orig.time!=null?_bchart.timeScale().timeToCoordinate(orig.time):null;
+        const origXE=orig.timeEnd!=null?_bchart.timeScale().timeToCoordinate(orig.timeEnd):null;
         if(origXS!=null){
-          const newXS=origXS+dx;
-          const newTime=_coordToTimeSafe(newXS);
+          const newTime=_coordToTimeSafe(origXS+dx);
           if(newTime!=null) dr.time=newTime;
+        }
+        if(origXE!=null){
+          const newEnd=_coordToTimeSafe(origXE+dx);
+          if(newEnd!=null) dr.timeEnd=newEnd;
         }
       }
       // Sync modal if open
@@ -5926,7 +5936,7 @@ function _onChartMouseMove(e){
         if(dh?.type==='position'){
           const r=_posRole(dh,x,y);
           cur=r==='tp'||r==='sl'||r==='entry'?'ns-resize':
-              r==='left'?'ew-resize':
+              r==='left'||r==='right'?'ew-resize':
               r==='body'?'move':'grab';
         } else cur='grab';
       }
@@ -6056,7 +6066,8 @@ function _drawOverlay(){
         bx2=Math.min(W-10,x2+60);
         by1=Math.min(priceY(d.p1.price)??0,priceY(d.p2.price)??0)-4;
       } else if(d.type==='position'){
-        bx2=_posXE(W)-2;
+        const _xE2=d.timeEnd?Math.min(W-2,timeX(d.timeEnd)??W-2):W-2;
+        bx2=_xE2;
         by1=Math.min(priceY(d.tp)??0,priceY(d.entry)??0,priceY(d.sl)??0)-4;
       }
       // × delete
@@ -6149,9 +6160,14 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
     const isLong=d.side==='long';
     const yE=priceY(d.entry), yT=priceY(d.tp), yS=priceY(d.sl);
     if(yE==null||yT==null||yS==null) return;
+    // Both anchors can be anywhere — LW timeToCoordinate extrapolates future
     const rawXS=d.time!=null?timeX(d.time):null;
-    const xS=rawXS!=null?Math.max(-200,rawXS):0; // allow starting off-screen left
-    const xE=_posXE(W); // always extends to chart right boundary
+    const rawXE=d.timeEnd!=null?timeX(d.timeEnd):null;
+    const xS=rawXS??0;
+    const xE=rawXE??(xS+200);
+    // Clip to canvas for drawing, but positions can extend off-screen
+    const drawXS=Math.max(-1,xS), drawXE=Math.min(W+1,xE);
+    if(drawXE<drawXS) return;
     const risk=Math.abs(d.entry-d.sl), reward=Math.abs(d.tp-d.entry);
     const rr=risk>0?(reward/risk).toFixed(2):'∞';
     const pctTP=((d.tp-d.entry)/d.entry*100).toFixed(2);
@@ -6159,19 +6175,19 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
 
     // Zone fills — TP always green (profit), SL always red (loss)
     ctx.fillStyle='rgba(63,185,80,0.15)';
-    ctx.fillRect(xS,Math.min(yE,yT),xE-xS,Math.abs(yT-yE));
+    ctx.fillRect(drawXS,Math.min(yE,yT),drawXE-drawXS,Math.abs(yT-yE));
     ctx.fillStyle='rgba(248,81,73,0.15)';
-    ctx.fillRect(xS,Math.min(yE,yS),xE-xS,Math.abs(yS-yE));
+    ctx.fillRect(drawXS,Math.min(yE,yS),drawXE-drawXS,Math.abs(yS-yE));
 
     // Lines
     ctx.lineWidth=2; ctx.setLineDash([]);
     ctx.strokeStyle='#e3b341';
-    ctx.beginPath(); ctx.moveTo(xS,yE); ctx.lineTo(xE,yE); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(drawXS,yE); ctx.lineTo(drawXE,yE); ctx.stroke();
     ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
     ctx.strokeStyle='#3fb950';
-    ctx.beginPath(); ctx.moveTo(xS,yT); ctx.lineTo(xE,yT); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(drawXS,yT); ctx.lineTo(drawXE,yT); ctx.stroke();
     ctx.strokeStyle='#f85149';
-    ctx.beginPath(); ctx.moveTo(xS,yS); ctx.lineTo(xE,yS); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(drawXS,yS); ctx.lineTo(drawXE,yS); ctx.stroke();
     ctx.setLineDash([]);
 
     // TV-style right-edge tags
@@ -6180,11 +6196,11 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
       const tw=ctx.measureText(txt).width+14;
       ctx.fillStyle=col;
       ctx.beginPath();
-      if(ctx.roundRect) ctx.roundRect(xE-tw,y2-9,tw,18,3);
-      else ctx.rect(xE-tw,y2-9,tw,18);
+      if(ctx.roundRect) ctx.roundRect(drawXE-tw,y2-9,tw,18,3);
+      else ctx.rect(drawXE-tw,y2-9,tw,18);
       ctx.fill();
       ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(txt,xE-tw/2,y2);
+      ctx.fillText(txt,drawXE-tw/2,y2);
       ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     }
     const tpSign=pctTP>=0?'+':'';
@@ -6199,7 +6215,8 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
         ctx.fillStyle=col; ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
         ctx.beginPath(); ctx.arc(hx,hy,6,0,Math.PI*2); ctx.fill(); ctx.stroke();
       }
-      h(xS,yE,'#e3b341');   // left entry anchor (drag to move)
+      h(xS,yE,'#e3b341');   // left entry anchor
+      h(xE,yE,'#aaaaaa');   // right resize handle
     }
   }
 }
