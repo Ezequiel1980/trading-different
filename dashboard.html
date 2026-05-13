@@ -5341,11 +5341,11 @@ function initBinanceChart() {
     if (_chartTool !== 'cursor') _drawOverlay();
   });
 
-  // ── Mouse events on wrap for drawing tools ──
+  // ── Mouse events on wrap for drawing tools (capture phase = fires before LW Charts) ──
   wrap.style.cursor = 'default';
-  wrap.addEventListener('mousemove', _onChartMouseMove);
-  wrap.addEventListener('mousedown', _onChartMouseDown);
-  wrap.addEventListener('click',     _onChartClick);
+  wrap.addEventListener('mousemove', _onChartMouseMove, {capture:true});
+  wrap.addEventListener('mousedown', _onChartMouseDown, {capture:true});
+  wrap.addEventListener('click',     _onChartClick, {capture:true});
   wrap.addEventListener('dblclick', e => {
     if(_chartTool!=='cursor') return;
     const rect=wrap.getBoundingClientRect();
@@ -5686,23 +5686,37 @@ function _posRole(d,x,y){
 }
 
 // ── Mouse handlers ──
+let _suppressNextClick = false;
+
 function _onChartMouseDown(e){
   const wrap=document.getElementById('binance-chart');
   if(!wrap||!_bchart||!_bCandles) return;
   const rect=wrap.getBoundingClientRect();
   const mx=e.clientX-rect.left, my=e.clientY-rect.top;
 
-  // ── POSITION CREATION: single drag gesture ──
+  // Helper: price delta from pixel delta using ppp captured at drag start
+  function pxToPrice(basePx, dy){
+    return basePx + (_dragStart?.ppp||0) * dy;
+  }
+  function shiftTime(t, dx){
+    if(!t||!_bchart) return t;
+    const tx=_bchart.timeScale().timeToCoordinate(t);
+    if(tx==null) return t;
+    return _bchart.timeScale().coordinateToTime(tx+dx)||t;
+  }
+
+  // ── POSITION CREATION: mousedown→drag→mouseup ──
   if(_chartTool==='long'||_chartTool==='short'){
     const entryP=_bCandles.coordinateToPrice(my);
     const entryT=_bchart.timeScale().coordinateToTime(mx);
     if(!entryP||entryP<=0) return;
     const side=_chartTool, isLong=side==='long';
-    const ppp=_pricePerPixel()||0;
+    const ppp=_pricePerPixel()||0; // negative value (screen-y vs price)
     e.preventDefault(); e.stopPropagation();
+
     function onMove(ev){
-      const cx=ev.clientX-rect.left, cy=ev.clientY-rect.top;
-      const dp=(cy-my)*ppp; // price delta (negative ppp means dy>0 → price lower)
+      const cy=ev.clientY-rect.top, cx=ev.clientX-rect.left;
+      const dp=(cy-my)*ppp;            // ppp<0: dy>0 → price drops
       const target=entryP+dp;
       const tp=isLong?Math.max(entryP,target):Math.min(entryP,target);
       const sl=isLong?entryP-(tp-entryP):entryP+(entryP-tp);
@@ -5711,13 +5725,11 @@ function _onChartMouseDown(e){
       _drawOverlay();
     }
     function onUp(ev){
-      document.removeEventListener('mousemove',onMove);
-      document.removeEventListener('mouseup',onUp);
-      const cy=ev.clientY-rect.bottom+rect.height;
-      const dy=ev.clientY-rect.top-my;
+      document.removeEventListener('mousemove',onMove,true);
+      document.removeEventListener('mouseup',onUp,true);
       _toolState._prev=null;
+      const dy=ev.clientY-rect.top-my, cx=ev.clientX-rect.left;
       if(Math.abs(dy)<6){_drawOverlay();return;}
-      const cx=ev.clientX-rect.left;
       const dp=dy*ppp, target=entryP+dp;
       const tp=isLong?Math.max(entryP,target):Math.min(entryP,target);
       const sl=isLong?entryP-(tp-entryP):entryP+(entryP-tp);
@@ -5725,78 +5737,73 @@ function _onChartMouseDown(e){
       _drawings.push({type:'position',side,entry:entryP,tp,sl,time:entryT,timeEnd:endT});
       localStorage.setItem('td_drawings',JSON.stringify(_drawings));
       _selectedIdx=_drawings.length-1;
+      _suppressNextClick=true;
       setChartTool('cursor');
     }
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('mouseup',onUp);
+    document.addEventListener('mousemove',onMove,true);
+    document.addEventListener('mouseup',onUp,true);
+    return;
+  }
+
+  // ── FIB / MEASURE: first click handled in _onChartClick ──
+  if(_chartTool==='fib'||_chartTool==='measure'){
+    e.stopPropagation(); // prevent LW from reacting
     return;
   }
 
   if(_chartTool!=='cursor') return;
 
   const hit=_hitTest(mx,my);
+  // Not over anything → deselect, let LW handle pan
   if(hit<0){ _selectedIdx=-1; _drawOverlay(); return; }
 
+  // Over a drawing → block LW, start drag
+  e.stopPropagation(); e.preventDefault();
   _selectedIdx=hit;
   const d=_drawings[hit];
   const role=d.type==='position'?(_posRole(d,mx,my)||'body'):'body';
   const ppp=_pricePerPixel();
   _dragActive=true;
   _dragStart={x:mx,y:my,ppp,drawing:JSON.parse(JSON.stringify(d)),role};
-  e.stopPropagation();
   wrap.style.cursor='grabbing';
   _drawOverlay();
 
-  function shiftTime(t,dx){
-    if(!t) return t;
-    const tx=_bchart.timeScale().timeToCoordinate(t);
-    if(tx==null) return t;
-    return _bchart.timeScale().coordinateToTime(tx+dx)||t;
-  }
-  function deltaPrice(basePx,dy){
-    const p=_dragStart.ppp;
-    return p!=null?(basePx+p*dy):basePx;
-  }
-
   function onMove(ev){
     if(!_dragActive||!_dragStart) return;
+    ev.stopPropagation();
     const r2=wrap.getBoundingClientRect();
     const cx=ev.clientX-r2.left, cy=ev.clientY-r2.top;
     const dx=cx-_dragStart.x, dy=cy-_dragStart.y;
     const orig=_dragStart.drawing, dr=_drawings[_selectedIdx];
     if(!dr) return;
-    const W2=wrap.clientWidth;
 
     if(dr.type==='fib'||dr.type==='measure'){
-      const pD=deltaPrice(orig.p1.price,dy)-orig.p1.price;
+      const pD=pxToPrice(orig.p1.price,dy)-orig.p1.price;
       dr.p1={...orig.p1,price:orig.p1.price+pD,time:shiftTime(orig.p1.time,dx)};
       dr.p2={...orig.p2,price:orig.p2.price+pD,time:shiftTime(orig.p2.time,dx)};
+
     } else if(dr.type==='position'){
-      const role=_dragStart.role;
-      if(role==='tp'||role==='right-tp'){
-        dr.tp=deltaPrice(orig.tp,dy);
-      } else if(role==='sl'||role==='right-sl'){
-        dr.sl=deltaPrice(orig.sl,dy);
-      } else if(role==='entry'||role==='right-entry'){
-        dr.entry=deltaPrice(orig.entry,dy);
-      } else if(role==='left'){
+      const r=_dragStart.role;
+      if(r==='tp'||r==='right-tp'){
+        dr.tp=pxToPrice(orig.tp,dy);
+      } else if(r==='sl'||r==='right-sl'){
+        dr.sl=pxToPrice(orig.sl,dy);
+      } else if(r==='entry'||r==='right-entry'){
+        dr.entry=pxToPrice(orig.entry,dy);
+      } else if(r==='left'){
         dr.time=shiftTime(orig.time,dx);
-        dr.entry=deltaPrice(orig.entry,dy);
-      } else if(role==='right-entry'){
-        // Horizontal extension
-        const rawXE=orig.timeEnd?_bchart.timeScale().timeToCoordinate(orig.timeEnd):null;
-        const rawXS=orig.time?_bchart.timeScale().timeToCoordinate(orig.time):0;
-        const baseE=rawXE??((rawXS||0)+300);
-        const newXE=Math.max((rawXS||0)+40,baseE+dx);
-        dr.timeEnd=_bchart.timeScale().coordinateToTime(newXE)||orig.timeEnd;
-      } else { // body
-        const pD=deltaPrice(orig.entry,dy)-orig.entry;
-        dr.entry=orig.entry+pD; dr.sl=orig.sl+pD; dr.tp=orig.tp+pD;
+        dr.entry=pxToPrice(orig.entry,dy);
+      } else { // body → move whole position
+        const pD=pxToPrice(orig.entry,dy)-orig.entry;
+        dr.entry=orig.entry+pD;
+        dr.sl=orig.sl+pD;
+        dr.tp=orig.tp+pD;
         dr.time=shiftTime(orig.time,dx);
         if(orig.timeEnd) dr.timeEnd=shiftTime(orig.timeEnd,dx);
       }
-      // Sync open modal
-      if(document.getElementById('pos-edit-modal')?.classList.contains('open')&&_editingPosIdx===_selectedIdx){
+      // Sync modal if open
+      const modal=document.getElementById('pos-edit-modal');
+      if(modal?.classList.contains('open')&&_editingPosIdx===_selectedIdx){
         document.getElementById('pos-entry').value=Math.round(dr.entry);
         document.getElementById('pos-sl').value=Math.round(dr.sl);
         document.getElementById('pos-tp').value=Math.round(dr.tp);
@@ -5806,15 +5813,16 @@ function _onChartMouseDown(e){
     _drawOverlay();
   }
 
-  function onUp(){
+  function onUp(ev){
     _dragActive=false; _dragStart=null;
     wrap.style.cursor=_hoverIdx>=0?'move':'default';
     localStorage.setItem('td_drawings',JSON.stringify(_drawings));
-    document.removeEventListener('mousemove',onMove);
-    document.removeEventListener('mouseup',onUp);
+    document.removeEventListener('mousemove',onMove,true);
+    document.removeEventListener('mouseup',onUp,true);
+    _suppressNextClick=true;
   }
-  document.addEventListener('mousemove',onMove);
-  document.addEventListener('mouseup',onUp);
+  document.addEventListener('mousemove',onMove,true);
+  document.addEventListener('mouseup',onUp,true);
 }
 
 function _onChartMouseMove(e){
@@ -5851,6 +5859,7 @@ let _prevHover=-2;
 
 function _onChartClick(e){
   if(!_bchart||!_bCandles||_dragActive) return;
+  if(_suppressNextClick){ _suppressNextClick=false; return; }
   const wrap=document.getElementById('binance-chart');
   if(!wrap) return;
   const rect=wrap.getBoundingClientRect();
@@ -5860,6 +5869,7 @@ function _onChartClick(e){
   if(window._deleteBtn){
     const db=window._deleteBtn;
     if(Math.hypot(x-db.x,y-db.y)<=db.r+4){
+      e.stopPropagation();
       _drawings.splice(db.idx,1); _selectedIdx=-1; window._deleteBtn=null;
       localStorage.setItem('td_drawings',JSON.stringify(_drawings)); _drawOverlay(); return;
     }
@@ -5867,22 +5877,26 @@ function _onChartClick(e){
   // Edit button (position)
   if(window._editBtn){
     const eb=window._editBtn;
-    if(Math.hypot(x-eb.x,y-eb.y)<=eb.r+4){ openPosModal(eb.idx); return; }
+    if(Math.hypot(x-eb.x,y-eb.y)<=eb.r+4){ e.stopPropagation(); openPosModal(eb.idx); return; }
   }
 
   const price=_bCandles.coordinateToPrice(y);
   const time=_bchart.timeScale().coordinateToTime(x);
 
   if(_chartTool==='cursor'){
-    _selectedIdx=_hitTest(x,y); _drawOverlay(); return;
+    const hit=_hitTest(x,y);
+    if(hit>=0) e.stopPropagation();
+    _selectedIdx=hit; _drawOverlay(); return;
   }
   if(_chartTool==='hline'){
     if(!price||price<=0) return;
+    e.stopPropagation();
     _userLines.push({price:Math.round(price),color:'#58a6ff',label:''});
     _saveUserLines(); _renderUserLines(); return;
   }
   if(_chartTool==='fib'||_chartTool==='measure'){
     if(!price||price<=0) return;
+    e.stopPropagation();
     if(!_toolState.p1){ _toolState.p1={price,time}; _drawOverlay(); }
     else{
       _drawings.push({type:_chartTool,p1:_toolState.p1,p2:{price,time}});
@@ -6750,11 +6764,4 @@ async function runBacktestAllTF() {
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
       <button class="btn btn-secondary" onclick="closePosModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="savePosModal()">💾 Guardar</button>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
-                                                                                                                                                                                                                                                                                                                            
+      <button class="btn btn-primary" onclick="s
