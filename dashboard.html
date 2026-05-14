@@ -2726,6 +2726,7 @@ function fmtPrice(p) {
   return '$' + p.toLocaleString('en-US', { minimumFractionDigits:0, maximumFractionDigits:0 });
 }
 function updatePrice(price, change) {
+  window._lastPriceUpdate = Date.now();
   const el = document.getElementById('price-main');
   el.textContent = fmtPrice(price);
   // Tick animation via CSS class
@@ -5567,17 +5568,54 @@ async function _bLoadKlines(tfLabel){
 
 function _bConnectWS(interval) {
   if (_bWS) { _bWS.close(); _bWS = null; }
-  const ws = new WebSocket(`wss://stream.binance.com:9443/ws/btcusdt@kline_${interval}`);
+  // Combine kline + miniTicker in one stream so we get live price on every tick
+  const ws = new WebSocket(
+    `wss://stream.binance.com:9443/stream?streams=btcusdt@kline_${interval}/btcusdt@miniTicker`
+  );
   _bWS = ws;
+  let _lastMsg = Date.now();
 
   ws.onmessage=e=>{
     try{
-      const k=JSON.parse(e.data).k;
-      if(!k||!_bCandles)return;
-      const bar={time:Math.floor(k.t/1000),open:parseFloat(k.o),high:parseFloat(k.h),low:parseFloat(k.l),close:parseFloat(k.c),volume:parseFloat(k.v)};
-      _bCandles.update(bar);
-      if(_bVolume)_bVolume.update({time:bar.time,value:bar.volume,color:bar.close>=bar.open?'rgba(63,185,80,0.5)':'rgba(248,81,73,0.5)'});
-      if(_bCandleData.length){const last=_bCandleData[_bCandleData.length-1];if(last.time===bar.time)_bCandleData[_bCandleData.length-1]=bar;else if(bar.time>last.time)_bCandleData.push(bar);}
+      _lastMsg = Date.now();
+      const msg = JSON.parse(e.data);
+      const data = msg.data || msg;
+
+      // miniTicker → update live price display instantly
+      if(data.e==='24hrMiniTicker'||data.s==='BTCUSDT'&&data.c){
+        const p=parseFloat(data.c);
+        if(p>0){
+          const pct=data.P?parseFloat(data.P):((p-parseFloat(data.o||p))/parseFloat(data.o||p)*100);
+          prevPrice=currentPrice||p;
+          currentPrice=p;
+          updatePrice(p, pct);
+          updateSignals();
+          updatePoolMap();
+          syncToStorage();
+          const ce=document.getElementById('calc-entry');
+          if(ce&&!ce.value) ce.placeholder='$'+Math.round(p).toLocaleString();
+          const lut=document.getElementById('last-update-time');
+          if(lut) lut.textContent=getBsAsDate().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+        }
+      }
+
+      // kline → update chart candle
+      const k=data.k||data;
+      if(k&&k.t&&_bCandles){
+        const bar={time:Math.floor(k.t/1000),open:parseFloat(k.o),high:parseFloat(k.h),low:parseFloat(k.l),close:parseFloat(k.c),volume:parseFloat(k.v)};
+        _bCandles.update(bar);
+        if(_bVolume)_bVolume.update({time:bar.time,value:bar.volume,color:bar.close>=bar.open?'rgba(63,185,80,0.5)':'rgba(248,81,73,0.5)'});
+        if(_bCandleData.length){
+          const last=_bCandleData[_bCandleData.length-1];
+          if(last.time===bar.time)_bCandleData[_bCandleData.length-1]=bar;
+          else if(bar.time>last.time)_bCandleData.push(bar);
+        }
+        // Also update price from close if miniTicker not received yet
+        if(!currentPrice&&parseFloat(k.c)>0){
+          prevPrice=0; currentPrice=parseFloat(k.c);
+          updatePrice(currentPrice,0);
+        }
+      }
     }catch(err){}
   };
 
@@ -5586,6 +5624,28 @@ function _bConnectWS(interval) {
   };
   ws.onerror = reconnect;
   ws.onclose = e => { if (!e.wasClean) reconnect(); };
+
+  // Watchdog: if no message in 10s reconnect
+  if(_bWS._watchdog) clearInterval(_bWS._watchdog);
+  ws._watchdog = setInterval(()=>{
+    if(Date.now()-_lastMsg>10000&&_bWS===ws){
+      clearInterval(ws._watchdog);
+      ws.close();
+    }
+  },5000);
+}
+
+// Fallback REST poll every 15s in case WS fails
+if(!window._pricePollInterval){
+  window._pricePollInterval=setInterval(async()=>{
+    try{
+      if(currentPrice>0&&(Date.now()-(window._lastPriceUpdate||0))<8000) return;
+      const r=await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
+      const d=await r.json();
+      const p=parseFloat(d.lastPrice), pct=parseFloat(d.priceChangePercent);
+      if(p>0){ prevPrice=currentPrice||p; currentPrice=p; updatePrice(p,pct); }
+    }catch(e){}
+  },15000);
 }
 
 function setChartTF(tf) {
@@ -6789,35 +6849,4 @@ async function runBacktestAllTF() {
       <td style="padding:6px 10px;color:${r.wr>=50?'var(--green)':'var(--red)'};font-weight:700">${r.wr.toFixed(1)}%</td>
       <td style="padding:6px 10px;color:${r.pnl>=0?'var(--green)':'var(--red)'}">${r.pnl>=0?'+':''}${r.pnl.toFixed(2)}%</td>
       <td style="padding:6px 10px">${r.rr.toFixed(2)}</td>
-      <td style="padding:6px 10px;color:${r.gf>=1.5?'var(--green)':r.gf>=1?'var(--yellow)':'var(--red)'};font-weight:700">${r.gf.toFixed(2)}</td>
-      <td style="padding:6px 10px;color:${r.kelly>0?'var(--green)':'var(--red)'}">${r.kelly>0?r.kelly.toFixed(1)+'%':'Sin edge'}</td>
-    </tr>`;
-  }).join('');
-
-  container.innerHTML=`
-    <div style="padding:10px 0 6px;font-size:11px;color:var(--muted)">Comparativa de performance por timeframe · últimos ${days} días · pools configurados</div>
-    <table class="bt-table"><thead><tr>
-      <th>TF</th><th>Trades</th><th>Win Rate</th><th>P&L Total</th><th>R:R Prom</th><th>Factor Gan.</th><th>½ Kelly</th>
-    </tr></thead><tbody>${tableRows}</tbody></table>
-    ${bestTF&&bestTF.trades>=3?`<div style="margin-top:8px;padding:8px 12px;background:rgba(168,255,62,0.07);border-radius:6px;font-size:11px;color:var(--green)">★ Mejor TF histórico: <strong>${bestTF.tf}</strong> con factor de ganancia ${bestTF.gf.toFixed(2)} y win rate ${bestTF.wr.toFixed(1)}%</div>`:''}`;
-
-  if(btn){btn.disabled=false;btn.textContent='🔄 Todos TF';}
-}
-
-</script>
-<!-- STUDIES MODAL -->
-<div class="modal-overlay" id="studies-modal" onclick="if(event.target===this)closeStudiesModal()">
-  <div class="modal" style="max-width:520px;width:96vw;max-height:80vh;overflow-y:auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="margin:0">📊 Indicadores — BTC/USDT</h3>
-      <button onclick="closeStudiesModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
-    </div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:14px">Seleccioná los indicadores. Se calculan sobre los datos de Binance.</p>
-
-    <!-- Indicators grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px" id="studies-grid"></div>
-
-    <!-- Pine Script export -->
-    <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
-      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">EXPORTAR POOLS</div>
-      <button onclick="exportPineScript();closeStudiesModal()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--gree
+      <td style="padding:6px 10px;color:${r.gf>=1.5?'var(--green)':r.gf>=1?'
