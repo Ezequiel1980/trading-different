@@ -1471,16 +1471,56 @@ body:has(#bottom-panel.open) .app-layout {
         <!-- Chart area wrapper -->
         <div style="flex:1;min-height:0;display:flex;overflow:hidden;position:relative">
           <!-- Left toolbar -->
-          <div id="chart-toolbar-left" style="display:flex;flex-direction:column;gap:3px;padding:6px 4px;background:var(--surface-1);border-right:1px solid var(--border);flex-shrink:0;z-index:10">
-            <button class="ctool-btn active" id="ctool-cursor" onclick="setChartTool('cursor')" title="Cursor">↖</button>
-            <button class="ctool-btn" id="ctool-hline"  onclick="setChartTool('hline')"  title="Línea horizontal">—</button>
-            <button class="ctool-btn" id="ctool-fib"    onclick="setChartTool('fib')"    title="Fibonacci Retracement">𝑓</button>
-            <button class="ctool-btn" id="ctool-measure" onclick="setChartTool('measure')" title="Medir">📏</button>
+          <div id="chart-toolbar-left" style="display:flex;flex-direction:column;gap:2px;padding:6px 4px;background:var(--surface-1);border-right:1px solid var(--border);flex-shrink:0;z-index:10">
+            <!-- Cursor -->
+            <button class="ctool-btn active" id="ctool-cursor" onclick="setChartTool('cursor')" title="Cursor (V)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2l10 6-5.5 1.5L6 15z" fill="currentColor"/></svg>
+            </button>
             <div style="height:1px;background:var(--border);margin:2px 0"></div>
-            <button class="ctool-btn" id="ctool-long"   onclick="setChartTool('long')"   title="Posición Long">📈</button>
-            <button class="ctool-btn" id="ctool-short"  onclick="setChartTool('short')"  title="Posición Short">📉</button>
+            <!-- Horizontal line -->
+            <button class="ctool-btn" id="ctool-hline" onclick="setChartTool('hline')" title="Línea horizontal (H)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.5"/><circle cx="4" cy="8" r="1.5" fill="currentColor"/><circle cx="12" cy="8" r="1.5" fill="currentColor"/></svg>
+            </button>
+            <!-- Fibonacci -->
+            <button class="ctool-btn" id="ctool-fib" onclick="setChartTool('fib')" title="Fibonacci Retracement (F)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <line x1="2" y1="3" x2="14" y2="3" stroke="currentColor" stroke-width="1.2"/>
+                <line x1="2" y1="7" x2="14" y2="7" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,1"/>
+                <line x1="2" y1="10" x2="14" y2="10" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,1"/>
+                <line x1="2" y1="13" x2="14" y2="13" stroke="currentColor" stroke-width="1.2"/>
+                <text x="2" y="6.5" font-size="4" fill="currentColor" font-family="monospace">.618</text>
+              </svg>
+            </button>
+            <!-- Measure -->
+            <button class="ctool-btn" id="ctool-measure" onclick="setChartTool('measure')" title="Medir rango (M)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="4" width="12" height="8" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/>
+                <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="1" stroke-dasharray="2,1"/>
+                <line x1="5" y1="4" x2="5" y2="12" stroke="currentColor" stroke-width="1" stroke-dasharray="2,1"/>
+              </svg>
+            </button>
             <div style="height:1px;background:var(--border);margin:2px 0"></div>
-            <button class="ctool-btn" id="ctool-clear" onclick="clearDrawings()" title="Borrar dibujos">🗑</button>
+            <!-- Long position -->
+            <button class="ctool-btn" id="ctool-long" onclick="setChartTool('long')" title="Posición Long (L)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="2" width="12" height="5" rx="1" fill="rgba(63,185,80,0.25)" stroke="#3fb950" stroke-width="1.2"/>
+                <rect x="2" y="9" width="12" height="5" rx="1" fill="rgba(248,81,73,0.25)" stroke="#f85149" stroke-width="1.2"/>
+                <line x1="2" y1="7" x2="14" y2="7" stroke="#e3b341" stroke-width="1.5"/>
+              </svg>
+            </button>
+            <!-- Short position -->
+            <button class="ctool-btn" id="ctool-short" onclick="setChartTool('short')" title="Posición Short (S)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="2" width="12" height="5" rx="1" fill="rgba(248,81,73,0.25)" stroke="#f85149" stroke-width="1.2"/>
+                <rect x="2" y="9" width="12" height="5" rx="1" fill="rgba(63,185,80,0.25)" stroke="#3fb950" stroke-width="1.2"/>
+                <line x1="2" y1="7" x2="14" y2="7" stroke="#e3b341" stroke-width="1.5"/>
+              </svg>
+            </button>
+            <div style="height:1px;background:var(--border);margin:2px 0"></div>
+            <!-- Clear all -->
+            <button class="ctool-btn" id="ctool-clear" onclick="clearDrawings()" title="Borrar todos los dibujos">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
           </div>
           <!-- Main chart canvas -->
           <div id="binance-chart" style="flex:1;min-height:0;position:relative;overflow:hidden"></div>
@@ -4988,6 +5028,7 @@ renderPoolAccuracy();
 setTimeout(initBinanceChart, 400); // delay so layout settles before chart measures container
 fetchInitialPrice();
 connectWS();
+_connectPriceWS(); // dedicated miniTicker WS for live price
 fetchOIHistory();
 fetchCoinbasePrice();
 updateBsAsTimeClock();
@@ -5566,86 +5607,104 @@ async function _bLoadKlines(tfLabel){
   }catch(e){console.error('[BChart] fetch error:',e);}
 }
 
-function _bConnectWS(interval) {
-  if (_bWS) { _bWS.close(); _bWS = null; }
-  // Combine kline + miniTicker in one stream so we get live price on every tick
-  const ws = new WebSocket(
-    `wss://stream.binance.com:9443/stream?streams=btcusdt@kline_${interval}/btcusdt@miniTicker`
-  );
-  _bWS = ws;
-  let _lastMsg = Date.now();
+// ── Live price WebSocket (miniTicker — fires every second) ──
+let _priceWS = null;
+function _connectPriceWS() {
+  if (_priceWS) { try{_priceWS.close();}catch(e){} _priceWS=null; }
+  try {
+    const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@miniTicker');
+    _priceWS = ws;
+    let lastMsg = Date.now();
 
-  ws.onmessage=e=>{
-    try{
-      _lastMsg = Date.now();
-      const msg = JSON.parse(e.data);
-      const data = msg.data || msg;
+    ws.onmessage = ev => {
+      try {
+        lastMsg = Date.now();
+        const d = JSON.parse(ev.data);
+        const p = parseFloat(d.c);
+        if (!p || p <= 0) return;
+        const open24 = parseFloat(d.o) || p;
+        const pct = ((p - open24) / open24) * 100;
+        prevPrice = currentPrice || p;
+        currentPrice = p;
+        updatePrice(p, pct);
+        updateSignals();
+        updatePoolMap();
+        syncToStorage();
+        const ce = document.getElementById('calc-entry');
+        if (ce && !ce.value) ce.placeholder = '$' + Math.round(p).toLocaleString();
+        const lut = document.getElementById('last-update-time');
+        if (lut) lut.textContent = getBsAsDate().toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+      } catch(err) {}
+    };
+    ws.onerror = () => setTimeout(_connectPriceWS, 3000);
+    ws.onclose = () => setTimeout(_connectPriceWS, 3000);
 
-      // miniTicker → update live price display instantly
-      if(data.e==='24hrMiniTicker'||data.s==='BTCUSDT'&&data.c){
-        const p=parseFloat(data.c);
-        if(p>0){
-          const pct=data.P?parseFloat(data.P):((p-parseFloat(data.o||p))/parseFloat(data.o||p)*100);
-          prevPrice=currentPrice||p;
-          currentPrice=p;
-          updatePrice(p, pct);
-          updateSignals();
-          updatePoolMap();
-          syncToStorage();
-          const ce=document.getElementById('calc-entry');
-          if(ce&&!ce.value) ce.placeholder='$'+Math.round(p).toLocaleString();
-          const lut=document.getElementById('last-update-time');
-          if(lut) lut.textContent=getBsAsDate().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
-        }
-      }
-
-      // kline → update chart candle
-      const k=data.k||data;
-      if(k&&k.t&&_bCandles){
-        const bar={time:Math.floor(k.t/1000),open:parseFloat(k.o),high:parseFloat(k.h),low:parseFloat(k.l),close:parseFloat(k.c),volume:parseFloat(k.v)};
-        _bCandles.update(bar);
-        if(_bVolume)_bVolume.update({time:bar.time,value:bar.volume,color:bar.close>=bar.open?'rgba(63,185,80,0.5)':'rgba(248,81,73,0.5)'});
-        if(_bCandleData.length){
-          const last=_bCandleData[_bCandleData.length-1];
-          if(last.time===bar.time)_bCandleData[_bCandleData.length-1]=bar;
-          else if(bar.time>last.time)_bCandleData.push(bar);
-        }
-        // Also update price from close if miniTicker not received yet
-        if(!currentPrice&&parseFloat(k.c)>0){
-          prevPrice=0; currentPrice=parseFloat(k.c);
-          updatePrice(currentPrice,0);
-        }
-      }
-    }catch(err){}
-  };
-
-  const reconnect = () => {
-    if (_bWS === ws) setTimeout(() => { if (_bWS === ws) _bConnectWS(interval); }, 3000);
-  };
-  ws.onerror = reconnect;
-  ws.onclose = e => { if (!e.wasClean) reconnect(); };
-
-  // Watchdog: if no message in 10s reconnect
-  if(_bWS._watchdog) clearInterval(_bWS._watchdog);
-  ws._watchdog = setInterval(()=>{
-    if(Date.now()-_lastMsg>10000&&_bWS===ws){
-      clearInterval(ws._watchdog);
-      ws.close();
-    }
-  },5000);
+    // Watchdog: reconnect if silent >12s
+    const wd = setInterval(() => {
+      if (_priceWS !== ws) { clearInterval(wd); return; }
+      if (Date.now() - lastMsg > 12000) { clearInterval(wd); ws.close(); }
+    }, 5000);
+  } catch(e) { setTimeout(_connectPriceWS, 5000); }
 }
 
-// Fallback REST poll every 15s in case WS fails
-if(!window._pricePollInterval){
-  window._pricePollInterval=setInterval(async()=>{
-    try{
-      if(currentPrice>0&&(Date.now()-(window._lastPriceUpdate||0))<8000) return;
-      const r=await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
-      const d=await r.json();
-      const p=parseFloat(d.lastPrice), pct=parseFloat(d.priceChangePercent);
-      if(p>0){ prevPrice=currentPrice||p; currentPrice=p; updatePrice(p,pct); }
-    }catch(e){}
-  },15000);
+// ── Chart kline WebSocket (updates candles) ──
+function _bConnectWS(interval) {
+  if (_bWS) { try{_bWS.close();}catch(e){} _bWS = null; }
+  try {
+    const ws = new WebSocket(`wss://stream.binance.com:9443/ws/btcusdt@kline_${interval}`);
+    _bWS = ws;
+    let lastMsg = Date.now();
+
+    ws.onmessage = ev => {
+      try {
+        lastMsg = Date.now();
+        const k = JSON.parse(ev.data).k;
+        if (!k || !_bCandles) return;
+        const bar = {
+          time:   Math.floor(k.t / 1000),
+          open:   parseFloat(k.o),
+          high:   parseFloat(k.h),
+          low:    parseFloat(k.l),
+          close:  parseFloat(k.c),
+          volume: parseFloat(k.v)
+        };
+        _bCandles.update(bar);
+        if (_bVolume) _bVolume.update({time:bar.time, value:bar.volume,
+          color: bar.close >= bar.open ? 'rgba(63,185,80,0.5)' : 'rgba(248,81,73,0.5)'});
+        if (_bCandleData.length) {
+          const last = _bCandleData[_bCandleData.length - 1];
+          if (last.time === bar.time) _bCandleData[_bCandleData.length - 1] = bar;
+          else if (bar.time > last.time) _bCandleData.push(bar);
+        }
+        // Seed currentPrice from kline if price WS hasn't fired yet
+        if (!currentPrice && bar.close > 0) {
+          prevPrice = 0; currentPrice = bar.close; updatePrice(bar.close, 0);
+        }
+      } catch(err) {}
+    };
+
+    const reconnect = () => { if (_bWS === ws) setTimeout(() => { if (_bWS === ws) _bConnectWS(interval); }, 3000); };
+    ws.onerror = reconnect;
+    ws.onclose = e => { if (!e.wasClean) reconnect(); };
+
+    const wd = setInterval(() => {
+      if (_bWS !== ws) { clearInterval(wd); return; }
+      if (Date.now() - lastMsg > 12000) { clearInterval(wd); ws.close(); }
+    }, 5000);
+  } catch(e) { setTimeout(() => _bConnectWS(interval), 5000); }
+}
+
+// Fallback REST poll every 10s
+if (!window._pricePollInterval) {
+  window._pricePollInterval = setInterval(async () => {
+    try {
+      if (Date.now() - (window._lastPriceUpdate || 0) < 5000) return;
+      const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
+      const d = await r.json();
+      const p = parseFloat(d.lastPrice), pct = parseFloat(d.priceChangePercent);
+      if (p > 0) { prevPrice = currentPrice || p; currentPrice = p; updatePrice(p, pct); }
+    } catch(e) {}
+  }, 10000);
 }
 
 function setChartTF(tf) {
