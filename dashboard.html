@@ -5723,9 +5723,8 @@ function _hitTest(x,y){
       const yE=_bCandles.priceToCoordinate(d.entry);
       const yT=_bCandles.priceToCoordinate(d.tp);
       const yS=_bCandles.priceToCoordinate(d.sl);
-      // Both edges are real timestamps — timeToCoordinate works for future too
-      const xS=d.time!=null?(_bchart.timeScale().timeToCoordinate(d.time)??-9999):-9999;
-      const xE=d.timeEnd!=null?(_bchart.timeScale().timeToCoordinate(d.timeEnd)??9999):9999;
+      const xS=d._xS??(d.time!=null?(_bchart.timeScale().timeToCoordinate(d.time)??-9999):-9999);
+      const xE=d._xE??(d.timeEnd!=null?(_bchart.timeScale().timeToCoordinate(d.timeEnd)??9999):9999);
       const visL=Math.max(-10,xS), visR=Math.min(W+10,xE);
       if(visR<visL) continue;
       const inX=x>=visL-4&&x<=visR+12;
@@ -5747,8 +5746,8 @@ function _posRole(d,x,y){
   const yE=_bCandles.priceToCoordinate(d.entry);
   const yT=_bCandles.priceToCoordinate(d.tp);
   const yS=_bCandles.priceToCoordinate(d.sl);
-  const xS=d.time!=null?(_bchart.timeScale().timeToCoordinate(d.time)??0):0;
-  const xE=d.timeEnd!=null?(_bchart.timeScale().timeToCoordinate(d.timeEnd)??W):W;
+  const xS=d._xS??(d.time!=null?(_bchart.timeScale().timeToCoordinate(d.time)??0):0);
+  const xE=d._xE??(d.timeEnd!=null?(_bchart.timeScale().timeToCoordinate(d.timeEnd)??W):W);
   const inX=x>=xS-4&&x<=xE+10;
   // Right edge handle → resize width
   if(Math.abs(x-xE)<=10&&y>Math.min(yT??0,yS??0)-10&&y<Math.max(yT??H,yS??H)+10) return 'right';
@@ -5840,8 +5839,14 @@ function _onChartMouseDown(e){
   const d=_drawings[hit];
   const role=d.type==='position'?(_posRole(d,mx,my)||'body'):'body';
   const ppp=_pricePerPixel();
+
+  // Capture pixel positions of anchors at drag start (works even in future area)
+  const _startXS = d.time!=null ? (_bchart.timeScale().timeToCoordinate(d.time)??mx) : mx;
+  const _startXE = d.timeEnd!=null ? (_bchart.timeScale().timeToCoordinate(d.timeEnd)??(mx+200)) : (mx+200);
+
   _dragActive=true;
-  _dragStart={x:mx,y:my,ppp,drawing:JSON.parse(JSON.stringify(d)),role};
+  _dragStart={x:mx,y:my,ppp,drawing:JSON.parse(JSON.stringify(d)),role,
+              xS:_startXS, xE:_startXE};
   wrap.style.cursor='grabbing';
   _drawOverlay();
 
@@ -5861,36 +5866,29 @@ function _onChartMouseDown(e){
 
     } else if(dr.type==='position'){
       const r=_dragStart.role;
+      // ── Vertical only: individual price lines ──
       if(r==='tp'){
         dr.tp=pxToPrice(orig.tp,dy);
       } else if(r==='sl'){
         dr.sl=pxToPrice(orig.sl,dy);
       } else if(r==='entry'){
         dr.entry=pxToPrice(orig.entry,dy);
+
       } else if(r==='right'){
-        // Resize right edge only
-        const origXE=orig.timeEnd!=null?_bchart.timeScale().timeToCoordinate(orig.timeEnd):null;
-        const origXS=orig.time!=null?_bchart.timeScale().timeToCoordinate(orig.time):0;
-        const baseE=origXE??(origXS+200);
-        const newXE=Math.max((origXS??0)+40, baseE+dx);
-        const newEnd=_coordToTimeSafe(newXE);
-        if(newEnd!=null) dr.timeEnd=newEnd;
-      } else { // body / left — move entire position freely in 2D
+        // Resize right edge only — pure pixel math, no coord conversion
+        const newXE=Math.max(_dragStart.xS+40, _dragStart.xE+dx);
+        dr._xS=_dragStart.xS;
+        dr._xE=newXE;
+
+      } else {
+        // body / left — move entire position freely in 2D (pure pixels)
         const pD=pxToPrice(orig.entry,dy)-orig.entry;
         dr.entry=orig.entry+pD;
         dr.sl=orig.sl+pD;
         dr.tp=orig.tp+pD;
-        // Horizontal: shift both anchors by same dx
-        const origXS=orig.time!=null?_bchart.timeScale().timeToCoordinate(orig.time):null;
-        const origXE=orig.timeEnd!=null?_bchart.timeScale().timeToCoordinate(orig.timeEnd):null;
-        if(origXS!=null){
-          const newTime=_coordToTimeSafe(origXS+dx);
-          if(newTime!=null) dr.time=newTime;
-        }
-        if(origXE!=null){
-          const newEnd=_coordToTimeSafe(origXE+dx);
-          if(newEnd!=null) dr.timeEnd=newEnd;
-        }
+        // Store pixel positions directly — no coordinateToTime during drag
+        dr._xS=_dragStart.xS+dx;
+        dr._xE=_dragStart.xE+dx;
       }
       // Sync modal if open
       const modal=document.getElementById('pos-edit-modal');
@@ -5905,7 +5903,14 @@ function _onChartMouseDown(e){
   }
 
   function onUp(ev){
-    _dragActive=false; _dragStart=null;
+    _dragActive=false;
+    // Convert pixel positions back to time now that drag is done
+    const dr=_drawings[_selectedIdx];
+    if(dr&&dr.type==='position'){
+      if(dr._xS!=null){ const t=_coordToTimeSafe(dr._xS); if(t) dr.time=t; delete dr._xS; }
+      if(dr._xE!=null){ const t=_coordToTimeSafe(dr._xE); if(t) dr.timeEnd=t; delete dr._xE; }
+    }
+    _dragStart=null;
     wrap.style.cursor=_hoverIdx>=0?'move':'default';
     localStorage.setItem('td_drawings',JSON.stringify(_drawings));
     document.removeEventListener('mousemove',onMove,true);
@@ -6160,14 +6165,12 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
     const isLong=d.side==='long';
     const yE=priceY(d.entry), yT=priceY(d.tp), yS=priceY(d.sl);
     if(yE==null||yT==null||yS==null) return;
-    // Both anchors can be anywhere — LW timeToCoordinate extrapolates future
-    const rawXS=d.time!=null?timeX(d.time):null;
-    const rawXE=d.timeEnd!=null?timeX(d.timeEnd):null;
-    const xS=rawXS??0;
-    const xE=rawXE??(xS+200);
-    // Clip to canvas for drawing, but positions can extend off-screen
+    // During drag: use pixel overrides (_xS/_xE) for perfectly smooth movement
+    // After drag: use time→coordinate conversion (works for future too in LW Charts)
+    const xS = d._xS ?? (d.time!=null ? timeX(d.time) : null) ?? 0;
+    const xE = d._xE ?? (d.timeEnd!=null ? timeX(d.timeEnd) : null) ?? (xS+200);
     const drawXS=Math.max(-1,xS), drawXE=Math.min(W+1,xE);
-    if(drawXE<drawXS) return;
+    if(drawXE<=drawXS) return;
     const risk=Math.abs(d.entry-d.sl), reward=Math.abs(d.tp-d.entry);
     const rr=risk>0?(reward/risk).toFixed(2):'∞';
     const pctTP=((d.tp-d.entry)/d.entry*100).toFixed(2);
@@ -6817,5 +6820,4 @@ async function runBacktestAllTF() {
     <!-- Pine Script export -->
     <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
       <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">EXPORTAR POOLS</div>
-      <button onclick="exportPineScript();closeStudiesModal()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--green);background:rgba(168,255,62,0.1);color:var(--green);font-size:11px;cursor:pointer">📋 Copiar Pine Script de pools</button>
-  
+      <button onclick="exportPineScript();closeStudiesModal()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--gree
