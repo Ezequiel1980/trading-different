@@ -6403,6 +6403,68 @@ function _renderDrawing(ctx,d,W,H,priceY,timeX,selected){
 }
 
 // ── Studies modal (indicators — Fase 2 will wire them) ──
+
+// ── Indicadores sobre el chart ────────────────────────────
+let _indSeriesMap = {}; // id → series instance
+
+function _applyIndicators() {
+  if (!_bchart || !_bCandles || !_bCandleData.length) return;
+
+  // Remove old series
+  Object.values(_indSeriesMap).forEach(s => {
+    try { _bchart.removeSeries(s); } catch(e) {}
+  });
+  _indSeriesMap = {};
+
+  const data = _bCandleData;
+  const closes = data.map(c => c.close);
+
+  function sma(arr, n) {
+    return arr.map((_, i) => i < n - 1 ? null : arr.slice(i - n + 1, i + 1).reduce((a, b) => a + b, 0) / n);
+  }
+  function ema(arr, n) {
+    const k = 2 / (n + 1);
+    const out = []; let prev = null;
+    arr.forEach((v, i) => {
+      if (i < n - 1) { out.push(null); return; }
+      if (prev === null) prev = arr.slice(0, n).reduce((a, b) => a + b, 0) / n;
+      prev = v * k + prev * (1 - k);
+      out.push(prev);
+    });
+    return out;
+  }
+
+  function addLine(values, color, lineWidth) {
+    const s = _bchart.addLineSeries({ color, lineWidth: lineWidth || 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    s.setData(data.map((c, i) => values[i] != null ? { time: c.time, value: values[i] } : null).filter(Boolean));
+    return s;
+  }
+
+  if (_indCfg.ma20)  _indSeriesMap.ma20  = addLine(sma(closes, 20),  '#f0a500', 1.5);
+  if (_indCfg.ma50)  _indSeriesMap.ma50  = addLine(sma(closes, 50),  '#1e88e5', 1.5);
+  if (_indCfg.ema21) _indSeriesMap.ema21 = addLine(ema(closes, 21),  '#e040fb', 1.5);
+
+  if (_indCfg.bb) {
+    const mid = sma(closes, 20);
+    const upper = mid.map((m, i) => {
+      if (m === null) return null;
+      const slice = closes.slice(i - 19, i + 1);
+      const std = Math.sqrt(slice.reduce((s, v) => s + (v - m) ** 2, 0) / 20);
+      return m + 2 * std;
+    });
+    const lower = mid.map((m, i) => {
+      if (m === null) return null;
+      const slice = closes.slice(i - 19, i + 1);
+      const std = Math.sqrt(slice.reduce((s, v) => s + (v - m) ** 2, 0) / 20);
+      return m - 2 * std;
+    });
+    _indSeriesMap.bbMid   = addLine(mid,   'rgba(240,165,0,0.5)', 1);
+    _indSeriesMap.bbUpper = addLine(upper, 'rgba(240,165,0,0.4)', 1);
+    _indSeriesMap.bbLower = addLine(lower, 'rgba(240,165,0,0.4)', 1);
+  }
+  // RSI and MACD skipped (require separate pane — future enhancement)
+}
+
 const CHART_INDICATORS = [
   { id:'ma20',  name:'MA 20',            group:'Tendencia' },
   { id:'ma50',  name:'MA 50',            group:'Tendencia' },
