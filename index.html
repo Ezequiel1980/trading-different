@@ -5645,6 +5645,21 @@ async function _bLoadKlines(tfLabel){
     try { _bchart.timeScale().fitContent(); } catch(e) {}
     loadingEl.style.display='none';
 
+    // ── DEBUG: diagnóstico visible ──
+    (function(){
+      const dbg = document.getElementById('_chart_dbg') || document.createElement('div');
+      dbg.id = '_chart_dbg';
+      const cvs = wrap ? wrap.querySelector('canvas') : null;
+      const cw = cvs ? cvs.width : 0, ch = cvs ? cvs.height : 0;
+      const ww = wrap ? wrap.clientWidth : 0, wh = wrap ? wrap.clientHeight : 0;
+      const t0 = candles.length ? new Date(candles[0].time*1000).toISOString().slice(0,16) : '?';
+      const t1 = candles.length ? new Date(candles[candles.length-1].time*1000).toISOString().slice(0,16) : '?';
+      dbg.textContent = `✅ ${candles.length} velas | wrap:${ww}×${wh} | canvas:${cw}×${ch} | ${t0}→${t1}`;
+      dbg.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);background:#1a7f37;color:#fff;font-size:11px;padding:3px 10px;border-radius:4px;z-index:99999;pointer-events:none;font-family:monospace';
+      document.body.appendChild(dbg);
+      setTimeout(()=>{ if(dbg.parentNode) dbg.parentNode.removeChild(dbg); }, 8000);
+    })();
+
     setTimeout(()=>{
       if(_bVolChart&&_bchart){
         const lr=_bchart.timeScale().getVisibleLogicalRange();
@@ -5658,6 +5673,15 @@ async function _bLoadKlines(tfLabel){
   }catch(e){
     console.error('[BChart] fetch error:',e);
     loadingEl.textContent=`Error cargando ${tfLabel}`;
+    // DEBUG: error visible
+    (function(){
+      const dbg = document.getElementById('_chart_dbg') || document.createElement('div');
+      dbg.id = '_chart_dbg';
+      dbg.textContent = `❌ Error: ${e.message||e}`;
+      dbg.style.cssText = 'position:fixed;top:4px;left:50%;transform:translateX(-50%);background:#b91c1c;color:#fff;font-size:11px;padding:3px 10px;border-radius:4px;z-index:99999;pointer-events:none;font-family:monospace';
+      document.body.appendChild(dbg);
+      setTimeout(()=>{ if(dbg.parentNode) dbg.parentNode.removeChild(dbg); }, 15000);
+    })();
   }
 }
 
