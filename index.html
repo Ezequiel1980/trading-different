@@ -5629,7 +5629,7 @@ async function _bLoadKlines(tfLabel){
   const wrap=document.getElementById('binance-chart');
   let loadingEl=document.getElementById('chart-loading-msg');
   if(!loadingEl){ loadingEl=document.createElement('div'); loadingEl.id='chart-loading-msg';
-    loadingEl.style.cssText='position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#6e7681;font-size:13px;pointer-events:none;z-index:20;';
+    loadingEl.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#fff;font-size:15px;font-weight:700;padding:12px 24px;border-radius:8px;border:1px solid #444;pointer-events:none;z-index:99999;';
     if(wrap) wrap.appendChild(loadingEl); }
   loadingEl.textContent=`Cargando ${tfLabel}…`; loadingEl.style.display='block';
 
