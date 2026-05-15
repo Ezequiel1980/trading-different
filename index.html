@@ -5032,6 +5032,21 @@ updatePoolMap();
 try { updateSignals(); } catch(e) { console.warn('[TD] updateSignals init:', e); }
 buildLevelsTable();
 renderPoolAccuracy();
+// Indicator config (persisted, wired in Fase 2)
+let _indCfg = JSON.parse(localStorage.getItem('td_ind_cfg') || 'null') || {
+  ma20:false, ma50:false, ema21:false, bb:false, rsi:false, macd:false
+};
+
+let _bCandleData = []; // candle store for indicators + overlays
+let _bchart    = null;  // LW chart instance
+let _bCandles  = null;  // candlestick series
+let _bVolume   = null;  // volume histogram series
+let _bVolChart = null;  // separate volume chart
+let _bChartTF  = '15m'; // active TF label
+let _bWS       = null;  // live WebSocket
+let _bResizeOb = null;  // ResizeObserver
+let _bOverlay  = null;  // canvas overlay for drawings
+
 setTimeout(initBinanceChart, 400); // delay so layout settles before chart measures container
 fetchInitialPrice();
 connectWS();
@@ -5244,20 +5259,6 @@ const CHART_TF_MAP = {
   '1H':'1h','4H':'4h','8H':'8h','1D':'1d','1W':'1w'
 };
 
-// Indicator config (persisted, wired in Fase 2)
-let _indCfg = JSON.parse(localStorage.getItem('td_ind_cfg') || 'null') || {
-  ma20:false, ma50:false, ema21:false, bb:false, rsi:false, macd:false
-};
-
-let _bCandleData = []; // candle store for indicators + overlays
-let _bchart    = null;  // LW chart instance
-let _bCandles  = null;  // candlestick series
-let _bVolume   = null;  // volume histogram series
-let _bVolChart = null;  // separate volume chart
-let _bChartTF  = '15m'; // active TF label
-let _bWS       = null;  // live WebSocket
-let _bResizeOb = null;  // ResizeObserver
-let _bOverlay  = null;  // canvas overlay for drawings
 let _chartTool = 'cursor'; // active tool
 let _toolState   = {}; // tool interaction state (anchors, preview)
 let _currentCross = null; // current crosshair price+time
