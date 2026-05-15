@@ -1350,6 +1350,12 @@ body:has(#bottom-panel.open) .app-layout {
 
 </style>
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+  // Fallback CDN si unpkg falla
+  if (typeof LightweightCharts === 'undefined') {
+    document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/scr'+'ipt>');
+  }
+  </script>
   <style>
   /* ── Binance Chart TF selector ── */
   .chart-tf-btn { padding:2px 8px; border-radius:4px; border:1px solid var(--border); background:var(--surface-2); color:var(--muted); font-size:10px; font-family:var(--font-mono); cursor:pointer; transition:all .15s; white-space:nowrap; }
@@ -5259,7 +5265,19 @@ let _currentCross = null; // current crosshair price+time
 function initBinanceChart() {
   const wrap = document.getElementById('binance-chart');
   if (!wrap) return;
-  if (typeof LightweightCharts === 'undefined') { setTimeout(initBinanceChart, 400); return; }
+  if (typeof LightweightCharts === 'undefined') {
+    const _chartWrap = document.getElementById('binance-chart');
+    if (_chartWrap && !_chartWrap._lcRetry) { _chartWrap._lcRetry = 0; }
+    if (_chartWrap) {
+      _chartWrap._lcRetry = (_chartWrap._lcRetry || 0) + 1;
+      if (_chartWrap._lcRetry > 20) {
+        // Mostrar error legible si tras 8s sigue sin cargar la librería
+        _chartWrap.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#f85149;font-size:13px;text-align:center">⚠️ Error cargando librería del gráfico.<br><span style="font-size:11px;color:#6e7681">Recargá la página (F5)</span></div>';
+        return;
+      }
+    }
+    setTimeout(initBinanceChart, 400); return;
+  }
 
   // Cleanup previous instance
   if (_bchart)    { try { _bchart.remove(); } catch(e){} _bchart = null; }
