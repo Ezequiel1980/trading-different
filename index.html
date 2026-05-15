@@ -3288,6 +3288,7 @@ function buildConfluenceMap() {
 // ════════════════════════════════════════════════════════
 function buildLevelsTable() {
   const tbody=document.getElementById('levels-tbody');
+  if(!tbody) return; // sección eliminada del sidebar
   const _rawLvl=(typeof _getPoolsForTF==='function')?_getPoolsForTF(currentTF):getCurrentPools();
   const pools=filterSweptPools(_rawLvl, currentPrice);
   const rows=[];
