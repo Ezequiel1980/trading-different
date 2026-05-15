@@ -5279,6 +5279,9 @@ function initBinanceChart() {
     setTimeout(initBinanceChart, 400); return;
   }
 
+  // Wrap in try/catch to surface errors visibly
+  try {
+
   // Cleanup previous instance
   if (_bchart)    { try { _bchart.remove(); } catch(e){} _bchart = null; }
   if (_bVolChart) { try { _bVolChart.remove(); } catch(e){} _bVolChart = null; }
@@ -5538,6 +5541,12 @@ function initBinanceChart() {
   setTimeout(_syncOverlaySize, 100);
   // ── Load klines ──
   _bLoadKlines(_bChartTF);
+
+  } catch(chartErr) {
+    console.error('[Chart] initBinanceChart error:', chartErr);
+    const errWrap = document.getElementById('binance-chart');
+    if (errWrap) errWrap.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#f85149;font-size:12px;text-align:center">⚠️ ' + chartErr.message + '</div>';
+  }
 }
 
 // Data sources: CryptoCompare (1D/1W, desde 2010) + Binance paginado (intraday)
