@@ -5292,8 +5292,7 @@ function initBinanceChart() {
 
   // ── Main chart ──
   _bchart = LightweightCharts.createChart(wrap, {
-    width:  wrap.clientWidth  || 800,
-    height: wrap.clientHeight || 500,
+    autoSize: true,
     layout: {
       background: { type: 'solid', color: '#0d1117' },
       textColor:  '#8b949e',
@@ -5342,8 +5341,7 @@ function initBinanceChart() {
   if (volWrap) {
     volWrap.innerHTML = '';
     _bVolChart = LightweightCharts.createChart(volWrap, {
-      width:  volWrap.clientWidth  || 800,
-      height: volWrap.clientHeight || 90,
+      autoSize: true,
       layout: { background: { type:'solid', color:'#0d1117' }, textColor:'#8b949e', fontSize:9 },
       grid: { vertLines:{visible:false}, horzLines:{visible:false} },
       crosshair: { vertLine:{visible:true,color:'rgba(88,166,255,0.3)'}, horzLine:{visible:false} },
@@ -5507,12 +5505,8 @@ function initBinanceChart() {
     });
   }
 
-  // ── ResizeObserver ──
-  _bResizeOb = new ResizeObserver(() => {
-    if (!_bchart || !wrap.clientWidth || !wrap.clientHeight) return;
-    _bchart.applyOptions({ width: wrap.clientWidth, height: wrap.clientHeight });
-    _syncOverlaySize();
-  });
+  // ── ResizeObserver (autoSize handles chart, only overlay needs manual sync) ──
+  _bResizeOb = new ResizeObserver(() => { _syncOverlaySize(); });
   _bResizeOb.observe(wrap);
 
   // ── Volume resize handle ──
@@ -5647,7 +5641,8 @@ async function _bLoadKlines(tfLabel){
     })));
     _applyIndicators();
     _renderUserLines();
-    _bchart.timeScale().scrollToRealTime();
+    try { _bchart.timeScale().scrollToRealTime(); } catch(e) {}
+    try { _bchart.timeScale().fitContent(); } catch(e) {}
     loadingEl.style.display='none';
 
     setTimeout(()=>{
