@@ -2,18 +2,25 @@
   "version": 2,
   "name": "trading-different",
   "builds": [
-    { "src": "index.html",   "use": "@vercel/static" },
-    { "src": "heatmap.html", "use": "@vercel/static" }
+    { "src": "index.html",       "use": "@vercel/static" },
+    { "src": "heatmap.html",     "use": "@vercel/static" },
+    { "src": "hyperliquid.html", "use": "@vercel/static" },
+    { "src": "api/*.js",         "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/heatmap", "dest": "/heatmap.html" },
-    { "src": "/(.*)",    "dest": "/index.html" }
+    { "src": "/api/(.*)",    "dest": "/api/$1" },
+    { "src": "/heatmap",     "dest": "/heatmap.html" },
+    { "src": "/hyperliquid", "dest": "/hyperliquid.html" },
+    { "src": "/(.*)",        "dest": "/index.html" }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        { "key": "Cache-Control",                "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Access-Control-Allow-Origin",  "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
       ]
     }
   ]

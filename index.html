@@ -1396,6 +1396,7 @@ body:has(#bottom-panel.open) .app-layout {
       <button class="mode-btn active" onclick="setMode('scalping')">⚡ Scalping</button>
       <button class="mode-btn" onclick="setMode('swing')">📈 Swing</button>
     </div>
+    <a href="/hyperliquid" class="cm-open-btn" style="text-decoration:none" title="Hyperliquid Whale Tracker">🐋 Whales</a>
     <button class="cm-open-btn" onclick="openCalcModal()">⚖️ Calc</button>
     <button class="backtest-toggle-btn active" id="bt-toggle-btn" onclick="toggleBottom()">📊 Panel ▲</button>
   </div>
@@ -7109,10 +7110,4 @@ async function runBacktestAllTF() {
     </div>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button onclick="savePosModal()" style="flex:1;padding:8px;border-radius:6px;border:none;background:var(--green);color:#0d1117;font-weight:700;font-size:12px;cursor:pointer">Guardar</button>
-      <button onclick="closePosModal()" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);font-size:12px;cursor:pointer">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
+      <button onclick="closePosModal()" style="flex:1;padding:8px;border-radius:6px;border:1px solid var(--border);backgrou

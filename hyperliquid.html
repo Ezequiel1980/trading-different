@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hyperliquid Whale Tracker · Trading Different</title>
+<style>
+:root {
+  --bg0:      #0d1117;
+  --bg1:      #161b22;
+  --bg2:      #1c2128;
+  --bg3:      #21262d;
+  --border:   #30363d;
+  --text:     #e6edf3;
+  --muted:    #7d8590;
+  --accent:   #388bfd;
+  --green:    #3fb950;
+  --red:      #f85149;
+  --yellow:   #d29922;
+  --purple:   #bc8cff;
+  --font:     'Segoe UI', system-ui, sans-serif;
+  --mono:     'JetBrains Mono','Cascadia Code','Courier New', monospace;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; background:var(--bg0); color:var(--text); font-family:var(--font); font-size:13px; overflow:hidden; }
+
+/* ─── LAYOUT ─────────────────────────────────────────────────── */
+.app { display:flex; flex-direction:column; height:100vh; }
+
+/* ─── HEADER ─────────────────────────────────────────────────── */
+.header {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 16px;
+  background:var(--bg1);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.header-logo { display:flex; align-items:center; gap:8px; text-decoration:none; }
+.header-logo .brand { font-size:13px; font-weight:700; color:var(--text); }
+.header-logo .brand span { color:var(--accent); }
+.header-sep { width:1px; height:20px; background:var(--border); }
+.header-title { font-size:13px; font-weight:600; color:var(--text); }
+.header-sub   { font-size:10px; color:var(--muted); margin-left:4px; }
+
+.header-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.status-dot { width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0; }
+.status-dot.live { background:var(--green); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.status-text { font-size:11px; color:var(--muted); font-family:var(--mono); }
+
+.back-btn {
+  display:flex; align-items:center; gap:5px;
+  padding:4px 10px; border-radius:5px;
+  border:1px solid var(--border); background:transparent;
+  color:var(--muted); font-size:11px; cursor:pointer;
+  text-decoration:none;
+  transition:all .15s;
+}
+.back-btn:hover { background:var(--bg3); color:var(--text); }
+
+/* ─── TABS ───────────────────────────────────────────────────── */
+.tabs-bar {
+  display:flex; gap:0;
+  background:var(--bg1);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  padding:0 16px;
+}
+.tab-btn {
+  padding:9px 16px; border:none; background:transparent;
+  color:var(--muted); font-size:12px; font-weight:500;
+  cursor:pointer; border-bottom:2px solid transparent;
+  transition:all .15s; white-space:nowrap;
+}
+.tab-btn:hover  { color:var(--text); }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+.badge {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:16px; height:16px; border-radius:8px;
+  background:var(--red); color:#fff; font-size:9px;
+  font-weight:700; padding:0 4px; margin-left:5px;
+}
+
+/* ─── CONTENT AREA ───────────────────────────────────────────── */
+.content { flex:1; min-height:0; overflow:hidden; position:relative; }
+.tab-panel { display:none; height:100%; flex-direction:column; overflow:hidden; }
+.tab-panel.active { display:flex; }
+
+/* ─── TOOLBAR ────────────────────────────────────────────────── */
+.toolbar {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:8px 14px;
+  background:var(--bg1);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.toolbar-label { font-size:11px; color:var(--muted); }
+
+/* ─── BUTTONS ────────────────────────────────────────────────── */
+.btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; border-radius:5px; border:none;
+  font-size:11px; font-weight:600; cursor:pointer;
+  transition:all .15s;
+}
+.btn-primary  { background:var(--accent); color:#fff; }
+.btn-primary:hover  { background:#58a6ff; }
+.btn-success  { background:#238636; color:#fff; }
+.btn-success:hover  { background:#2ea043; }
+.btn-danger   { background:#da3633; color:#fff; }
+.btn-danger:hover   { background:#f85149; }
+.btn-ghost    { background:transparent; color:var(--muted); border:1px solid var(--border); }
+.btn-ghost:hover    { background:var(--bg3); color:var(--text); }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ─── INPUTS ─────────────────────────────────────────────────── */
+input[type=text], input[type=number], select {
+  background:var(--bg2); color:var(--text);
+  border:1px solid var(--border); border-radius:5px;
+  padding:5px 10px; font-size:12px; font-family:var(--font);
+  outline:none; transition:border-color .15s;
+}
+input:focus, select:focus { border-color:var(--accent); }
+select option { background:var(--bg2); }
+
+/* ─── TABLE ──────────────────────────────────────────────────── */
+.table-wrap { flex:1; overflow-y:auto; overflow-x:auto; }
+.table-wrap::-webkit-scrollbar { width:6px; height:6px; }
+.table-wrap::-webkit-scrollbar-track { background:var(--bg1); }
+.table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+table { width:100%; border-collapse:collapse; font-size:12px; }
+thead tr { background:var(--bg1); position:sticky; top:0; z-index:2; }
+thead th {
+  padding:7px 10px; text-align:left;
+  color:var(--muted); font-size:10px; font-weight:600;
+  border-bottom:1px solid var(--border); white-space:nowrap;
+  user-select:none; cursor:pointer;
+}
+thead th:hover { color:var(--text); }
+tbody tr { border-bottom:1px solid rgba(48,54,61,.5); transition:background .1s; }
+tbody tr:hover { background:var(--bg3); }
+tbody td { padding:7px 10px; white-space:nowrap; font-family:var(--mono); font-size:11px; }
+
+.pos  { color:var(--green); }
+.neg  { color:var(--red); }
+.muted{ color:var(--muted); }
+.tag-long  { color:var(--green); font-weight:700; }
+.tag-short { color:var(--red);   font-weight:700; }
+
+/* ─── CARDS ──────────────────────────────────────────────────── */
+.card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:8px; padding:14px 16px;
+}
+.card-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+.card-value { font-size:18px; font-weight:700; font-family:var(--mono); }
+
+/* ─── WALLET MONITOR ─────────────────────────────────────────── */
+.wallet-list { display:flex; flex-direction:column; gap:6px; padding:12px 14px; overflow-y:auto; }
+.wallet-item {
+  display:flex; align-items:center; gap:10px;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:6px; padding:8px 12px;
+}
+.wallet-addr { font-family:var(--mono); font-size:11px; color:var(--accent); flex:1; }
+.wallet-label { font-size:11px; color:var(--muted); min-width:100px; }
+.wallet-status { font-size:10px; color:var(--muted); min-width:80px; text-align:right; }
+
+/* ─── ALERTS ─────────────────────────────────────────────────── */
+.alerts-list { flex:1; overflow-y:auto; padding:0; }
+.alert-item {
+  display:flex; align-items:flex-start; gap:12px;
+  padding:10px 14px; border-bottom:1px solid rgba(48,54,61,.5);
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+.alert-time { font-family:var(--mono); font-size:10px; color:var(--muted); white-space:nowrap; margin-top:2px; }
+.alert-type { font-size:10px; font-weight:700; white-space:nowrap; min-width:90px; }
+.alert-type.new-pos  { color:var(--green); }
+.alert-type.close-pos{ color:var(--red); }
+.alert-type.pnl-chg  { color:var(--yellow); }
+.alert-type.whale    { color:var(--purple); }
+.alert-msg { font-size:11px; line-height:1.5; }
+
+/* ─── EMPTY STATE ────────────────────────────────────────────── */
+.empty {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:200px; gap:8px; color:var(--muted);
+}
+.empty-icon { font-size:32px; opacity:.4; }
+.empty-text { font-size:12px; }
+
+/* ─── LOADING ────────────────────────────────────────────────── */
+.loading-bar {
+  height:2px; background:linear-gradient(90deg,var(--accent),var(--purple));
+  animation:loadbar 1.2s ease infinite;
+  display:none;
+}
+.loading-bar.active { display:block; }
+@keyframes loadbar {
+  0%   { transform:scaleX(0); transform-origin:left; }
+  50%  { transform:scaleX(1); transform-origin:left; }
+  51%  { transform-origin:right; }
+  100% { transform:scaleX(0); transform-origin:right; }
+}
+
+/* ─── POSITIONS SPLIT ────────────────────────────────────────── */
+.pos-layout { display:flex; height:100%; gap:0; overflow:hidden; }
+.pos-sidebar { width:300px; border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
+.pos-main    { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+/* ─── RANK MEDAL ──────────────────────────────────────────────── */
+.rank-1 { color:#ffd700; }
+.rank-2 { color:#c0c0c0; }
+.rank-3 { color:#cd7f32; }
+
+/* ─── SUMMARY ROW ────────────────────────────────────────────── */
+.summary-row {
+  display:flex; gap:8px; padding:8px 14px;
+  background:var(--bg1); border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.summary-card {
+  background:var(--bg2); border:1px solid var(--border); border-radius:6px;
+  padding:6px 12px; display:flex; flex-direction:column; gap:1px;
+}
+.summary-label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+.summary-value { font-size:13px; font-weight:700; font-family:var(--mono); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── HEADER ──────────────────────────────────────────────── -->
+  <div class="header">
+    <a href="/" class="header-logo">
+      <span class="brand">Trading <span>Different</span></span>
+    </a>
+    <div class="header-sep"></div>
+    <span class="header-title">🐋 Hyperliquid Whale Tracker</span>
+    <span class="header-sub">— Leaderboard · Posiciones · Alertas</span>
+
+    <div class="header-right">
+      <div id="status-dot" class="status-dot"></div>
+      <span id="status-text" class="status-text">Offline</span>
+      <a href="/" class="back-btn">← Dashboard</a>
+    </div>
+  </div>
+
+  <!-- ── TABS ────────────────────────────────────────────────── -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" onclick="switchTab('leaderboard')">📊 Leaderboard</button>
+    <button class="tab-btn" onclick="switchTab('positions')" id="tab-positions">
+      📍 Posiciones
+    </button>
+    <button class="tab-btn" onclick="switchTab('wallets')">👁 Wallets</button>
+    <button class="tab-btn" onclick="switchTab('alerts')" id="tab-alerts">
+      🚨 Alertas <span class="badge" id="alert-badge" style="display:none">0</span>
+    </button>
+  </div>
+
+  <!-- ── CONTENT ─────────────────────────────────────────────── -->
+  <div class="content">
+
+    <!-- ════ LEADERBOARD ════════════════════════════════════════ -->
+    <div class="tab-panel active" id="panel-leaderboard">
+      <div class="loading-bar" id="lb-loading"></div>
+      <div class="toolbar">
+        <span class="toolbar-label">Top:</span>
+        <select id="lb-top" style="width:70px">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+        <span class="toolbar-label">Período:</span>
+        <select id="lb-period" style="width:90px" onchange="renderLeaderboard()">
+          <option value="allTime" selected>All Time</option>
+          <option value="month">Mes</option>
+          <option value="week">Semana</option>
+          <option value="day">24h</option>
+        </select>
+        <button class="btn btn-primary" onclick="loadLeaderboard()">🔄 Cargar</button>
+        <button class="btn btn-success" onclick="trackSelected()" id="btn-track" disabled>➕ Monitorear</button>
+        <span id="lb-status" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
+      </div>
+
+      <!-- Summary top 3 -->
+      <div class="summary-row" id="lb-summary" style="display:none"></div>
+
+      <div class="table-wrap">
+        <table id="lb-table">
+          <thead>
+            <tr>
+              <th style="width:40px">#</th>
+              <th>Wallet</th>
+              <th onclick="sortLb('accountValue')" title="Ordenar">Cuenta ↕</th>
+              <th onclick="sortLb('pnl')" title="Ordenar">PnL ↕</th>
+              <th onclick="sortLb('roi')" title="Ordenar">ROI% ↕</th>
+              <th>PnL Mes</th>
+              <th>ROI Mes%</th>
+              <th>PnL 7D</th>
+              <th>PnL 24H</th>
+              <th>Volumen</th>
+              <th style="width:60px">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="lb-body">
+            <tr><td colspan="11"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Presioná "Cargar" para ver el leaderboard</div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ════ POSICIONES ════════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-positions">
+      <div class="loading-bar" id="pos-loading"></div>
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="refreshPositions()" id="btn-refresh">🔄 Actualizar Todo</button>
+        <span id="pos-status" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Wallet</th>
+              <th>Asset</th>
+              <th>Lado</th>
+              <th>Size</th>
+              <th>Entrada</th>
+              <th>Valor</th>
+              <th>PnL Unrealiz.</th>
+              <th>ROE%</th>
+              <th>Liquidación</th>
+              <th>Leverage</th>
+              <th>Actualizado</th>
+            </tr>
+          </thead>
+          <tbody id="pos-body">
+            <tr><td colspan="11"><div class="empty"><div class="empty-icon">📍</div><div class="empty-text">Agregá wallets en la pestaña "Wallets" y presioná Actualizar</div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ════ WALLETS MONITOREADAS ════════════════════════════════ -->
+    <div class="tab-panel" id="panel-wallets">
+      <!-- Add form -->
+      <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+        <input type="text" id="new-addr" placeholder="0x… Wallet Address" style="width:300px" onkeydown="if(event.key==='Enter')addWallet()"/>
+        <input type="text" id="new-label" placeholder="Label (opcional)" style="width:150px" onkeydown="if(event.key==='Enter')addWallet()"/>
+        <input type="number" id="new-threshold" value="5" min="1" max="100" style="width:70px" title="Umbral PnL% para alerta"/>
+        <span class="toolbar-label">% alerta PnL</span>
+        <button class="btn btn-success" onclick="addWallet()">➕ Agregar</button>
+        <button class="btn btn-ghost" onclick="startMonitor()" id="btn-start-monitor">▶ Iniciar Monitor (60s)</button>
+        <button class="btn btn-danger" onclick="stopMonitor()" id="btn-stop-monitor" style="display:none">⏹ Detener</button>
+        <span id="monitor-status" style="font-size:11px;color:var(--muted)"></span>
+      </div>
+
+      <div class="wallet-list" id="wallet-list">
+        <div class="empty"><div class="empty-icon">👁</div><div class="empty-text">No hay wallets monitoreadas. Agregá una arriba.</div></div>
+      </div>
+    </div>
+
+    <!-- ════ ALERTAS ════════════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-alerts">
+      <div class="toolbar">
+        <button class="btn btn-ghost" onclick="clearAlerts()">🗑 Limpiar</button>
+        <span id="alerts-count" style="font-size:11px;color:var(--muted);margin-left:8px">Sin alertas</span>
+      </div>
+      <div class="alerts-list" id="alerts-list">
+        <div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">Las alertas aparecerán aquí cuando el monitor detecte cambios</div></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+//  API
+// ═══════════════════════════════════════════════════════════════
+const HL_API = 'https://api.hyperliquid.xyz/info';
+
+async function hlPost(body) {
+  const res = await fetch(HL_API, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ESTADO
+// ═══════════════════════════════════════════════════════════════
+let _lbData      = [];       // leaderboard raw
+let _lbSortKey   = 'pnl';
+let _lbSortDir   = -1;
+let _selectedRow = null;
+let _wallets     = JSON.parse(localStorage.getItem('hl_wallets') || '[]');
+let _positions   = {};       // addr → [positions]
+let _prevPos     = {};       // addr → [positions] (para diff)
+let _alerts      = [];
+let _monitorTimer = null;
+let _alertCount  = 0;
+
+// ═══════════════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const panels = ['leaderboard','positions','wallets','alerts'];
+    b.classList.toggle('active', panels[i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  LEADERBOARD
+// ═══════════════════════════════════════════════════════════════
+async function loadLeaderboard() {
+  const topN = parseInt(document.getElementById('lb-top').value);
+  const bar  = document.getElementById('lb-loading');
+  const status = document.getElementById('lb-status');
+  bar.classList.add('active');
+  status.textContent = '⏳ Cargando…';
+  document.getElementById('btn-track').disabled = true;
+
+  try {
+    const data = await hlPost({ type: 'leaderboard' });
+    let rows = (data.leaderboardRows || []).slice(0, topN);
+    _lbData = rows.map((r, i) => parseLeaderboardRow(r, i + 1));
+    renderLeaderboard();
+    renderLbSummary();
+    status.textContent = `✅ ${_lbData.length} traders · ${new Date().toLocaleTimeString()}`;
+  } catch(e) {
+    status.textContent = `❌ Error: ${e.message}`;
+  } finally {
+    bar.classList.remove('active');
+  }
+}
+
+function parseLeaderboardRow(r, rank) {
+  const perf = {};
+  (r.windowPerformances || []).forEach(([win, d]) => { perf[win] = d; });
+  const parse = v => parseFloat(v || '0');
+  return {
+    rank,
+    address:      r.ethAddress || '',
+    label:        r.displayName || shortAddr(r.ethAddress || ''),
+    accountValue: parse(r.accountValue),
+    allTime: { pnl: parse(perf.allTime?.pnl), roi: parse(perf.allTime?.roi)*100, vlm: parse(perf.allTime?.vlm) },
+    month:   { pnl: parse(perf.month?.pnl),   roi: parse(perf.month?.roi)*100 },
+    week:    { pnl: parse(perf.week?.pnl),    roi: parse(perf.week?.roi)*100 },
+    day:     { pnl: parse(perf.day?.pnl),     roi: parse(perf.day?.roi)*100 },
+  };
+}
+
+function renderLeaderboard() {
+  const period = document.getElementById('lb-period').value;
+  const sorted = [..._lbData].sort((a, b) => {
+    let va, vb;
+    if (_lbSortKey === 'accountValue') { va = a.accountValue; vb = b.accountValue; }
+    else if (_lbSortKey === 'roi')     { va = a[period].roi;  vb = b[period].roi; }
+    else                               { va = a[period].pnl;  vb = b[period].pnl; }
+    return _lbSortDir * (vb - va);
+  });
+
+  const monitoredSet = new Set(_wallets.map(w => w.address.toLowerCase()));
+
+  const body = document.getElementById('lb-body');
+  if (!sorted.length) {
+    body.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Sin datos</div></div></td></tr>`;
+    return;
+  }
+
+  body.innerHTML = sorted.map(t => {
+    const p = t[period];
+    const isMonitored = monitoredSet.has(t.address.toLowerCase());
+    const rankClass = t.rank === 1 ? 'rank-1' : t.rank === 2 ? 'rank-2' : t.rank === 3 ? 'rank-3' : '';
+    return `<tr onclick="selectLbRow('${t.address}')" style="cursor:pointer;${_selectedRow===t.address?'background:rgba(56,139,253,.12)':''}">
+      <td class="${rankClass}" style="text-align:center">${t.rank <= 3 ? ['🥇','🥈','🥉'][t.rank-1] : t.rank}</td>
+      <td>
+        <div style="font-weight:600;color:${isMonitored?'var(--green)':'var(--text)'}">${t.label} ${isMonitored?'👁':''}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${shortAddr(t.address)}</div>
+      </td>
+      <td>${fmtUsd(t.accountValue)}</td>
+      <td class="${p.pnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(p.pnl)}</td>
+      <td class="${p.roi >= 0 ? 'pos' : 'neg'}">${p.roi >= 0 ? '+' : ''}${p.roi.toFixed(2)}%</td>
+      <td class="${t.month.pnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(t.month.pnl)}</td>
+      <td class="${t.month.roi >= 0 ? 'pos' : 'neg'}">${t.month.roi >= 0 ? '+' : ''}${t.month.roi.toFixed(2)}%</td>
+      <td class="${t.week.pnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(t.week.pnl)}</td>
+      <td class="${t.day.pnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(t.day.pnl)}</td>
+      <td class="muted">${fmtVol(t.allTime.vlm)}</td>
+      <td><button class="btn btn-ghost" style="padding:3px 7px;font-size:10px" onclick="event.stopPropagation();trackAddr('${t.address}','${t.label}')">${isMonitored?'✓':'➕'}</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderLbSummary() {
+  const top3 = _lbData.slice(0, 3);
+  const summary = document.getElementById('lb-summary');
+  if (!top3.length) { summary.style.display = 'none'; return; }
+  summary.style.display = 'flex';
+  summary.innerHTML = top3.map((t,i) => `
+    <div class="summary-card">
+      <div class="summary-label">${['🥇','🥈','🥉'][i]} Top ${i+1}</div>
+      <div class="summary-value">${fmtUsd(t.accountValue)}</div>
+      <div style="font-size:10px;color:var(--muted)">${t.label}</div>
+      <div style="font-size:11px;margin-top:2px" class="${t.allTime.pnl>=0?'pos':'neg'}">${fmtPnl(t.allTime.pnl)}</div>
+    </div>
+  `).join('');
+}
+
+function sortLb(key) {
+  if (_lbSortKey === key) _lbSortDir *= -1;
+  else { _lbSortKey = key; _lbSortDir = -1; }
+  renderLeaderboard();
+}
+
+function selectLbRow(addr) {
+  _selectedRow = addr;
+  document.getElementById('btn-track').disabled = false;
+  document.getElementById('btn-track').onclick = () => {
+    const t = _lbData.find(x => x.address === addr);
+    if (t) trackAddr(t.address, t.label);
+  };
+  renderLeaderboard();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  POSICIONES
+// ═══════════════════════════════════════════════════════════════
+async function fetchPositions(wallet) {
+  const data = await hlPost({ type: 'clearinghouseState', user: wallet.address.toLowerCase() });
+  const summary = data.crossMarginSummary || data.marginSummary || {};
+  const positions = (data.assetPositions || [])
+    .filter(w => w.position && Math.abs(parseFloat(w.position.szi || '0')) > 0)
+    .map(w => {
+      const p = w.position;
+      const size = parseFloat(p.szi || '0');
+      return {
+        wallet:    wallet.address,
+        label:     wallet.label || shortAddr(wallet.address),
+        coin:      p.coin || '?',
+        side:      size >= 0 ? 'LONG' : 'SHORT',
+        size:      Math.abs(size),
+        entryPx:   parseFloat(p.entryPx || '0'),
+        posVal:    parseFloat(p.positionValue || '0'),
+        upnl:      parseFloat(p.unrealizedPnl || '0'),
+        roe:       parseFloat(p.returnOnEquity || '0') * 100,
+        liqPx:     parseFloat(p.liquidationPx || '0'),
+        leverage:  p.leverage?.value || 0,
+        levType:   p.leverage?.type || 'cross',
+        updated:   new Date(),
+        accountVal: parseFloat(summary.accountValue || '0'),
+      };
+    });
+  return { positions, accountVal: parseFloat(summary.accountValue || '0') };
+}
+
+async function refreshPositions() {
+  if (!_wallets.length) {
+    document.getElementById('pos-status').textContent = '⚠️ No hay wallets. Agregá en la pestaña Wallets.';
+    return;
+  }
+  const bar = document.getElementById('pos-loading');
+  const status = document.getElementById('pos-status');
+  bar.classList.add('active');
+  status.textContent = `⏳ Actualizando ${_wallets.length} wallet(s)…`;
+
+  const allPos = [];
+  for (const w of _wallets.filter(x => x.active)) {
+    try {
+      const { positions } = await fetchPositions(w);
+      _positions[w.address] = positions;
+      allPos.push(...positions);
+    } catch(e) {
+      status.textContent = `⚠️ Error en ${shortAddr(w.address)}: ${e.message}`;
+    }
+  }
+
+  renderPositions(allPos);
+  bar.classList.remove('active');
+  status.textContent = `✅ ${allPos.length} posiciones · ${new Date().toLocaleTimeString()}`;
+}
+
+function renderPositions(positions) {
+  const body = document.getElementById('pos-body');
+  if (!positions.length) {
+    body.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="empty-icon">📍</div><div class="empty-text">Sin posiciones abiertas en las wallets monitoreadas</div></div></td></tr>`;
+    return;
+  }
+  const sorted = [...positions].sort((a,b) => b.posVal - a.posVal);
+  body.innerHTML = sorted.map(p => `
+    <tr>
+      <td>
+        <div style="font-weight:600">${p.label}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${shortAddr(p.wallet)}</div>
+      </td>
+      <td style="font-weight:700;color:var(--accent)">${p.coin}</td>
+      <td class="tag-${p.side.toLowerCase()}">${p.side}</td>
+      <td>${p.size.toFixed(4)}</td>
+      <td>${fmtUsd(p.entryPx)}</td>
+      <td>${fmtUsd(p.posVal)}</td>
+      <td class="${p.upnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(p.upnl)}</td>
+      <td class="${p.roe >= 0 ? 'pos' : 'neg'}">${p.roe >= 0 ? '+' : ''}${p.roe.toFixed(2)}%</td>
+      <td class="muted">${p.liqPx > 0 ? fmtUsd(p.liqPx) : '—'}</td>
+      <td class="muted">${p.leverage}x ${p.levType}</td>
+      <td class="muted">${p.updated.toLocaleTimeString()}</td>
+    </tr>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  WALLETS
+// ═══════════════════════════════════════════════════════════════
+function addWallet() {
+  let addr = document.getElementById('new-addr').value.trim();
+  const label = document.getElementById('new-label').value.trim();
+  const threshold = parseFloat(document.getElementById('new-threshold').value) || 5;
+
+  if (!addr) return;
+  if (!addr.startsWith('0x')) addr = '0x' + addr;
+  if (_wallets.some(w => w.address.toLowerCase() === addr.toLowerCase())) {
+    alert('Wallet ya está en la lista.'); return;
+  }
+
+  _wallets.push({ address: addr.toLowerCase(), label, threshold, active: true, lastCheck: null });
+  saveWallets();
+  renderWallets();
+  document.getElementById('new-addr').value = '';
+  document.getElementById('new-label').value = '';
+}
+
+function trackAddr(addr, label) {
+  if (_wallets.some(w => w.address.toLowerCase() === addr.toLowerCase())) {
+    alert('Wallet ya monitoreada.'); return;
+  }
+  _wallets.push({ address: addr.toLowerCase(), label, threshold: 5, active: true, lastCheck: null });
+  saveWallets();
+  renderWallets();
+  renderLeaderboard();
+  switchTab('wallets');
+}
+
+function trackSelected() { /* handled by selectLbRow */ }
+
+function removeWallet(addr) {
+  _wallets = _wallets.filter(w => w.address !== addr);
+  saveWallets();
+  renderWallets();
+  renderLeaderboard();
+}
+
+function toggleWallet(addr) {
+  const w = _wallets.find(x => x.address === addr);
+  if (w) w.active = !w.active;
+  saveWallets();
+  renderWallets();
+}
+
+function saveWallets() { localStorage.setItem('hl_wallets', JSON.stringify(_wallets)); }
+
+function renderWallets() {
+  const el = document.getElementById('wallet-list');
+  if (!_wallets.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👁</div><div class="empty-text">No hay wallets monitoreadas. Agregá una arriba.</div></div>`;
+    return;
+  }
+  el.innerHTML = _wallets.map(w => `
+    <div class="wallet-item" style="${!w.active?'opacity:.5':''}">
+      <input type="checkbox" ${w.active?'checked':''} onchange="toggleWallet('${w.address}')" style="cursor:pointer">
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:600">${w.label || shortAddr(w.address)}</span>
+          <span style="font-size:10px;padding:1px 6px;background:var(--bg3);border-radius:3px;color:var(--muted)">PnL alert: ${w.threshold}%</span>
+        </div>
+        <div class="wallet-addr">${w.address}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost" style="padding:3px 8px;font-size:10px" onclick="lookupWallet('${w.address}')">🔍 Ver</button>
+        <button class="btn btn-danger" style="padding:3px 8px;font-size:10px" onclick="removeWallet('${w.address}')">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function lookupWallet(addr) {
+  switchTab('positions');
+  const bar = document.getElementById('pos-loading');
+  const status = document.getElementById('pos-status');
+  bar.classList.add('active');
+  status.textContent = `⏳ Cargando ${shortAddr(addr)}…`;
+  const w = _wallets.find(x => x.address === addr) || { address: addr, label: shortAddr(addr) };
+  try {
+    const { positions } = await fetchPositions(w);
+    _positions[addr] = positions;
+    const all = Object.values(_positions).flat();
+    renderPositions(all);
+    status.textContent = `✅ ${positions.length} posiciones · ${new Date().toLocaleTimeString()}`;
+  } catch(e) {
+    status.textContent = `❌ ${e.message}`;
+  } finally {
+    bar.classList.remove('active');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MONITOR (POLLING 60s)
+// ═══════════════════════════════════════════════════════════════
+function startMonitor() {
+  if (_monitorTimer) return;
+  document.getElementById('btn-start-monitor').style.display = 'none';
+  document.getElementById('btn-stop-monitor').style.display  = '';
+  setLive(true);
+  pollOnce();
+  _monitorTimer = setInterval(pollOnce, 60000);
+}
+
+function stopMonitor() {
+  clearInterval(_monitorTimer);
+  _monitorTimer = null;
+  document.getElementById('btn-start-monitor').style.display = '';
+  document.getElementById('btn-stop-monitor').style.display  = 'none';
+  setLive(false);
+  document.getElementById('monitor-status').textContent = '⏹ Monitor detenido';
+}
+
+async function pollOnce() {
+  const active = _wallets.filter(w => w.active);
+  if (!active.length) return;
+  document.getElementById('monitor-status').textContent = `🔄 Chequeando ${active.length} wallet(s)…`;
+
+  const allPos = [];
+  for (const w of active) {
+    try {
+      const { positions } = await fetchPositions(w);
+      detectAlerts(w, positions);
+      _prevPos[w.address] = _positions[w.address] || [];
+      _positions[w.address] = positions;
+      w.lastCheck = new Date();
+      allPos.push(...positions);
+    } catch(e) { /* silencioso */ }
+  }
+
+  renderPositions(allPos);
+  renderWallets();
+  const t = new Date().toLocaleTimeString();
+  document.getElementById('monitor-status').textContent = `✅ ${t} — ${allPos.length} posiciones`;
+  document.getElementById('pos-status').textContent = `✅ ${allPos.length} posiciones · ${t}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ALERTAS
+// ═══════════════════════════════════════════════════════════════
+function detectAlerts(wallet, current) {
+  const prev = _prevPos[wallet.address] || [];
+  const prevMap = Object.fromEntries(prev.map(p => [p.coin + p.side, p]));
+  const currMap = Object.fromEntries(current.map(p => [p.coin + p.side, p]));
+
+  // Nueva posición
+  current.forEach(p => {
+    if (!prevMap[p.coin + p.side]) {
+      addAlert({
+        type: 'new-pos', typeLabel: '🆕 NUEVA',
+        wallet: wallet.label || shortAddr(wallet.address),
+        coin: p.coin,
+        msg: `${wallet.label || shortAddr(wallet.address)} abrió ${p.side} ${p.coin} | ${p.size.toFixed(4)} @ ${fmtUsd(p.entryPx)} | Valor: ${fmtUsd(p.posVal)} | ${p.leverage}x ${p.levType}`
+      });
+    }
+  });
+
+  // Posición cerrada
+  prev.forEach(p => {
+    if (!currMap[p.coin + p.side]) {
+      addAlert({
+        type: 'close-pos', typeLabel: '🔴 CIERRE',
+        wallet: wallet.label || shortAddr(wallet.address),
+        coin: p.coin,
+        msg: `${wallet.label || shortAddr(wallet.address)} CERRÓ ${p.side} ${p.coin} | PnL: ${fmtPnl(p.upnl)}`
+      });
+    }
+  });
+
+  // Cambio PnL
+  current.forEach(p => {
+    const pp = prevMap[p.coin + p.side];
+    if (!pp || Math.abs(pp.upnl) < 1) return;
+    const changePct = Math.abs((p.upnl - pp.upnl) / Math.abs(pp.upnl) * 100);
+    if (changePct >= wallet.threshold) {
+      addAlert({
+        type: 'pnl-chg', typeLabel: '📈 PNL',
+        wallet: wallet.label || shortAddr(wallet.address),
+        coin: p.coin,
+        msg: `${wallet.label || shortAddr(wallet.address)} PnL ±${changePct.toFixed(1)}% en ${p.coin} | PnL: ${fmtPnl(p.upnl)} | ROE: ${p.roe.toFixed(2)}%`
+      });
+    }
+  });
+
+  // Posición grande (>$100k)
+  current.forEach(p => {
+    if (!prevMap[p.coin + p.side] && p.posVal >= 100000) {
+      addAlert({
+        type: 'whale', typeLabel: '🐋 BALLENA',
+        wallet: wallet.label || shortAddr(wallet.address),
+        coin: p.coin,
+        msg: `POSICIÓN GRANDE: ${wallet.label || shortAddr(wallet.address)} abrió ${p.side} ${p.coin} | ${fmtUsd(p.posVal)} | ${p.leverage}x`
+      });
+    }
+  });
+}
+
+function addAlert(a) {
+  const item = { ...a, time: new Date() };
+  _alerts.unshift(item);
+  if (_alerts.length > 300) _alerts.pop();
+  _alertCount++;
+  renderAlerts();
+  updateAlertBadge();
+}
+
+function renderAlerts() {
+  const el = document.getElementById('alerts-list');
+  if (!_alerts.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">Sin alertas</div></div>`;
+    document.getElementById('alerts-count').textContent = 'Sin alertas';
+    return;
+  }
+  document.getElementById('alerts-count').textContent = `${_alerts.length} alertas`;
+  el.innerHTML = _alerts.map(a => `
+    <div class="alert-item">
+      <div class="alert-time">${a.time.toLocaleTimeString()}</div>
+      <div class="alert-type ${a.type}">${a.typeLabel}</div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:2px">${a.wallet} · <strong>${a.coin}</strong></div>
+        <div class="alert-msg">${a.msg}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function clearAlerts() {
+  _alerts = [];
+  _alertCount = 0;
+  renderAlerts();
+  updateAlertBadge();
+}
+
+function updateAlertBadge() {
+  const badge = document.getElementById('alert-badge');
+  if (_alertCount > 0) {
+    badge.style.display = 'inline-flex';
+    badge.textContent = _alertCount > 99 ? '99+' : _alertCount;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════
+function shortAddr(a) {
+  if (!a || a.length < 12) return a;
+  return a.slice(0,6) + '…' + a.slice(-4);
+}
+
+function fmtUsd(v) {
+  if (!v) return '$0';
+  if (Math.abs(v) >= 1e6) return '$' + (v/1e6).toFixed(2) + 'M';
+  if (Math.abs(v) >= 1e3) return '$' + v.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+  return '$' + v.toFixed(2);
+}
+
+function fmtPnl(v) {
+  if (!v) return '$0';
+  const abs = Math.abs(v);
+  const str = abs >= 1e6 ? (abs/1e6).toFixed(2)+'M' : abs.toLocaleString('en-US', {minimumFractionDigits:0,maximumFractionDigits:0});
+  return (v >= 0 ? '+' : '-') + '$' + str;
+}
+
+function fmtVol(v) {
+  if (!v) return '$0';
+  if (v >= 1e9) return '$' + (v/1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return '$' + (v/1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return '$' + (v/1e3).toFixed(0) + 'K';
+  return '$' + v.toFixed(0);
+}
+
+function setLive(on) {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  dot.classList.toggle('live', on);
+  text.textContent = on ? 'Live (60s)' : 'Offline';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+renderWallets();
+renderAlerts();
+</script>
+</body>
+</html>
