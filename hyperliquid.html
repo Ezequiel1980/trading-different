@@ -356,6 +356,51 @@ tbody td{padding:6px 10px;white-space:nowrap;font-family:var(--mono);font-size:1
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ── SVG TAB ICONS ── */
+.tab-btn{display:flex;align-items:center;gap:5px}
+.tab-btn svg{opacity:.55;transition:opacity .15s;flex-shrink:0}
+.tab-btn.active svg,.tab-btn:hover svg{opacity:1}
+
+/* ── LB ADVANCED FILTERS ── */
+.adv-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 14px 7px;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0}
+.filter-group{display:flex;align-items:center;gap:4px}
+.filter-sep{width:1px;height:16px;background:var(--border);margin:0 2px}
+.filter-input{width:70px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11px;font-family:var(--mono);outline:none;transition:border-color .15s}
+.filter-input:focus{border-color:var(--accent)}
+
+/* ── SENTIMENT v2 PER ASSET ── */
+.sent2-layout{display:flex;height:100%;overflow:hidden}
+.sent2-list{width:255px;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sent2-search{padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sent2-search input{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:4px 9px;font-size:11px;outline:none}
+.sent2-search input:focus{border-color:var(--accent)}
+.sent2-scroll{flex:1;overflow-y:auto}
+.sent2-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid rgba(48,54,61,.35);cursor:pointer;transition:background .1s}
+.sent2-item:hover{background:var(--bg3)}
+.sent2-item.sel{background:rgba(56,139,253,.1);border-left:2px solid var(--accent);padding-left:10px}
+.sent2-coin{font-weight:700;color:var(--accent);min-width:44px;font-size:12px}
+.sent2-bar-wrap{flex:1;display:flex;flex-direction:column;gap:2px}
+.sent2-bar-track{height:7px;background:var(--bg3);border-radius:4px;overflow:hidden;display:flex}
+.sent2-bar-l{background:var(--green2);height:100%;transition:width .3s}
+.sent2-bar-s{background:var(--red2);height:100%}
+.sent2-bar-lbl{display:flex;justify-content:space-between;font-size:9px;color:var(--muted)}
+.sent2-val{font-size:10px;color:var(--muted);font-family:var(--mono);min-width:48px;text-align:right;white-space:nowrap}
+.sent2-detail{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.sent2-detail-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--bg1)}
+.sent2-detail-coin{font-size:20px;font-weight:700;color:var(--accent)}
+.sent2-gauge-row{display:flex;align-items:center;gap:20px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.sent2-detail-body{flex:1;overflow-y:auto}
+.sent2-empty{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:8px;color:var(--muted)}
+
+/* ── LIQUIDATION CHART ── */
+.liq-layout{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.liq-toolbar{display:flex;align-items:center;gap:8px;padding:7px 14px;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.liq-legend{display:flex;gap:14px;padding:6px 16px;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.liq-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+.liq-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.liq-chart-area{flex:1;overflow:auto;padding:0}
+
 </style>
 </head>
 <body>
@@ -435,13 +480,12 @@ tbody td{padding:6px 10px;white-space:nowrap;font-family:var(--mono);font-size:1
 
 <!-- ── TABS ── -->
 <div class="tabs-bar">
-  <button class="tab-btn active" onclick="switchTab('leaderboard')">📊 Leaderboard</button>
-  <button class="tab-btn" onclick="switchTab('positions')" id="tab-positions">📍 Posiciones</button>
-  <button class="tab-btn" onclick="switchTab('sentimiento')">🧠 Sentimiento</button>
-  <button class="tab-btn" onclick="switchTab('wallets')">👁 Wallets</button>
-  <button class="tab-btn" onclick="switchTab('alerts')" id="tab-alerts">
-    🚨 Alertas <span class="badge" id="alert-badge" style="display:none">0</span>
-  </button>
+  <button class="tab-btn active" onclick="switchTab('leaderboard')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="18" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="2" y="13" width="4" height="8" rx="1"/></svg>Leaderboard</button>
+  <button class="tab-btn" onclick="switchTab('positions')" id="tab-positions"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>Posiciones</button>
+  <button class="tab-btn" onclick="switchTab('sentimiento')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Sentimiento</button>
+  <button class="tab-btn" onclick="switchTab('liquidaciones')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Liquidaciones</button>
+  <button class="tab-btn" onclick="switchTab('wallets')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Wallets</button>
+  <button class="tab-btn" onclick="switchTab('alerts')" id="tab-alerts"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alertas <span class="badge" id="alert-badge" style="display:none">0</span></button>
 </div>
 
 <!-- ── CONTENT ── -->
@@ -478,14 +522,36 @@ tbody td{padding:6px 10px;white-space:nowrap;font-family:var(--mono);font-size:1
 
   <!-- Filter chips -->
   <div class="toolbar" style="padding-top:5px;padding-bottom:5px;gap:6px">
-    <span class="toolbar-label">Filtrar:</span>
+    <span class="toolbar-label">Preset:</span>
     <div class="chips">
       <button class="chip active" data-filter="all" onclick="setChip(this)">Todos</button>
-      <button class="chip" data-filter="whale" onclick="setChip(this)">🐋 Cuenta >$1M</button>
-      <button class="chip" data-filter="winner" onclick="setChip(this)">📈 Solo ganadores</button>
-      <button class="chip" data-filter="loser" onclick="setChip(this)">📉 Solo perdedores</button>
-      <button class="chip" data-filter="day" onclick="setChip(this)">⚡ Activos 24h</button>
+      <button class="chip" data-filter="whale" onclick="setChip(this)">Cuenta &gt;$1M</button>
+      <button class="chip" data-filter="winner" onclick="setChip(this)">Solo ganadores</button>
+      <button class="chip" data-filter="loser" onclick="setChip(this)">Solo perdedores</button>
+      <button class="chip" data-filter="day" onclick="setChip(this)">Activos 24h</button>
     </div>
+  </div>
+
+  <!-- Advanced filters -->
+  <div class="adv-filters">
+    <div class="filter-group">
+      <span class="toolbar-label">Puesto</span>
+      <input class="filter-input" id="lbf-rk-min" type="number" placeholder="desde" min="1" oninput="renderLeaderboard()"/>
+      <span style="font-size:10px;color:var(--muted2)">—</span>
+      <input class="filter-input" id="lbf-rk-max" type="number" placeholder="hasta" min="1" oninput="renderLeaderboard()"/>
+    </div>
+    <div class="filter-sep"></div>
+    <div class="filter-group">
+      <span class="toolbar-label">PnL mín $</span>
+      <input class="filter-input" id="lbf-pnl" type="number" placeholder="ej. 10000" oninput="renderLeaderboard()"/>
+    </div>
+    <div class="filter-sep"></div>
+    <div class="filter-group">
+      <span class="toolbar-label">Vol mín $</span>
+      <input class="filter-input" id="lbf-vol" type="number" placeholder="ej. 1M" oninput="renderLeaderboard()"/>
+    </div>
+    <div class="filter-sep"></div>
+    <button class="btn btn-ghost" style="padding:3px 9px;font-size:10px" onclick="resetLbFilters()">Limpiar</button>
   </div>
 
   <!-- Top 3 summary -->
@@ -589,52 +655,57 @@ tbody td{padding:6px 10px;white-space:nowrap;font-family:var(--mono);font-size:1
 
 <!-- ════ SENTIMIENTO ════ -->
 <div class="tab-panel" id="panel-sentimiento">
-  <div class="toolbar" style="justify-content:space-between">
-    <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:11px;color:var(--muted)">Análisis de sentimiento basado en wallets monitoreadas</span>
-    </div>
-    <button class="btn btn-ghost" onclick="updateSentimiento()">🔄 Calcular</button>
+  <div class="toolbar" style="justify-content:space-between;flex-shrink:0">
+    <span style="font-size:11px;color:var(--muted)">Sentimiento por activo — wallets monitoreadas</span>
+    <button class="btn btn-ghost" style="gap:5px" onclick="updateSentimiento()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Actualizar
+    </button>
   </div>
-
-  <div class="sent-layout">
-    <!-- Gauge panel -->
-    <div class="sent-panel" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
-      <div class="sent-title">⚖️ Long vs Short</div>
-      <div class="gauge-wrap">
-        <svg viewBox="0 0 200 110" width="200" height="110">
-          <!-- track -->
-          <path d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--bg3)" stroke-width="16" stroke-linecap="round"/>
-          <!-- short arc (red, right half initially) -->
-          <path id="gauge-short-arc" d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--red2)" stroke-width="16" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="0"/>
-          <!-- long arc (green) -->
-          <path id="gauge-long-arc" d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--green2)" stroke-width="16" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251"/>
-          <text x="100" y="88" text-anchor="middle" font-size="22" font-weight="700" fill="var(--text)" font-family="monospace" id="gauge-pct-text">—%</text>
-          <text x="100" y="104" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="sans-serif">% long por valor</text>
-        </svg>
-        <div class="gauge-labels" style="width:200px">
-          <span class="label-short">SHORT</span>
-          <span class="label-long">LONG</span>
-        </div>
+  <div class="sent2-layout">
+    <div class="sent2-list">
+      <div class="sent2-search">
+        <input type="text" id="sent-search" placeholder="Filtrar activo…" oninput="filterSentAssets()"/>
       </div>
-      <div id="sent-summary" style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
-        <div style="font-size:11px;color:var(--muted2);font-style:italic;text-align:center">Sin datos — agregá wallets y actualizá</div>
+      <div class="sent2-scroll" id="sent2-list-body">
+        <div class="sent2-empty"><div style="font-size:28px;opacity:.3">📊</div><div class="empty-text">Sin datos</div></div>
       </div>
     </div>
-
-    <!-- Coin exposure panel -->
-    <div class="sent-panel" style="border-bottom:1px solid var(--border);overflow-y:auto">
-      <div class="sent-title">💹 Exposición por Coin</div>
-      <div class="coin-bar-list" id="coin-bar-list">
-        <div style="font-size:11px;color:var(--muted2);font-style:italic">Sin datos</div>
+    <div class="sent2-detail" id="sent2-detail">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--muted)">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".25"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span style="font-size:12px">Seleccioná un activo de la lista</span>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- History sparkline (full width) -->
-    <div class="hist-wrap">
-      <div class="hist-title">📈 Evolución del Sentimiento (sesión actual)</div>
-      <div id="sent-history-chart">
-        <p class="hist-empty">El historial se registra automáticamente cada vez que actualizás las posiciones.</p>
-      </div>
+<!-- ════ LIQUIDACIONES ════ -->
+<div class="tab-panel" id="panel-liquidaciones">
+  <div class="liq-layout">
+    <div class="liq-toolbar">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:var(--yellow)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <span class="toolbar-label">Activo:</span>
+      <select id="liq-coin" style="width:110px" onchange="renderLiqChart()">
+        <option value="">— Elegir —</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadLiqData()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Cargar precio
+      </button>
+      <span id="liq-status" style="font-size:11px;color:var(--muted)"></span>
+      <span style="margin-left:auto;font-size:10px;color:var(--muted2)">Tamaño ∝ valor posición</span>
+    </div>
+    <div class="liq-legend">
+      <div class="liq-legend-item"><div class="liq-legend-dot" style="background:var(--red)"></div>Peligrosa (&lt;5%)</div>
+      <div class="liq-legend-item"><div class="liq-legend-dot" style="background:var(--yellow)"></div>Media (5–15%)</div>
+      <div class="liq-legend-item"><div class="liq-legend-dot" style="background:var(--muted)"></div>Lejana (&gt;15%)</div>
+      <div class="liq-legend-item"><div class="liq-legend-dot" style="background:var(--accent)"></div>Precio actual</div>
+      <div class="liq-legend-item"><div style="width:16px;height:2px;background:var(--green2);border-radius:1px"></div>Entrada LONG</div>
+      <div class="liq-legend-item"><div style="width:16px;height:2px;background:var(--red2);border-radius:1px"></div>Entrada SHORT</div>
+    </div>
+    <div class="liq-chart-area" id="liq-chart-area">
+      <div class="empty" style="height:300px"><div class="empty-icon">⚡</div><div class="empty-text">Seleccioná un activo y cargá el precio</div></div>
     </div>
   </div>
 </div>
@@ -741,11 +812,180 @@ let _sentHistory = [];   // [{time, longPct, exposure}]
 //  TABS
 // ═══════════════════════════════════════════════════════
 function switchTab(name) {
-  const panels = ['leaderboard','positions','sentimiento','wallets','alerts'];
+  const panels = ['leaderboard','positions','sentimiento','liquidaciones','wallets','alerts'];
   document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', panels[i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
   if (name==='sentimiento') updateSentimiento();
+  if (name==='liquidaciones') populateLiqCoins();
+}
+
+// ═══════════════════════════════════════════════════════
+//  LIQUIDACIONES
+// ═══════════════════════════════════════════════════════
+let _liqPrices = {};
+
+function populateLiqCoins() {
+  const sel = document.getElementById('liq-coin');
+  if (!sel) return;
+  const coins = [...new Set(_allPositions.map(p => p.coin))].sort();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Elegir —</option>' +
+    coins.map(c => `<option value="${c}" ${c===cur?'selected':''}>${c}</option>`).join('');
+  if (!cur && coins.length) { sel.value = coins[0]; }
+}
+
+async function loadLiqData() {
+  const status = document.getElementById('liq-status');
+  status.textContent = '⏳ Cargando precios…';
+  try {
+    const data = await hlPost({ type: 'allMids' });
+    Object.entries(data).forEach(([k, v]) => { _liqPrices[k] = parseFloat(v); });
+    status.textContent = `✅ ${Object.keys(_liqPrices).length} precios · ${new Date().toLocaleTimeString()}`;
+    renderLiqChart();
+  } catch(e) {
+    status.textContent = `❌ ${e.message}`;
+  }
+}
+
+function renderLiqChart() {
+  const coin = document.getElementById('liq-coin')?.value;
+  const area = document.getElementById('liq-chart-area');
+  if (!area) return;
+
+  if (!coin) {
+    area.innerHTML = '<div class="empty" style="height:300px"><div class="empty-icon">⚡</div><div class="empty-text">Seleccioná un activo</div></div>';
+    return;
+  }
+
+  const positions = _allPositions.filter(p => p.coin === coin && p.liqPx > 0);
+  const currentPx = _liqPrices[coin] || 0;
+
+  if (!positions.length) {
+    area.innerHTML = `<div class="empty" style="height:300px"><div class="empty-icon">⚡</div><div class="empty-text">Sin posiciones con precio de liquidación para ${coin}</div></div>`;
+    return;
+  }
+
+  // Collect all price points
+  const allPrices = positions.flatMap(p => [p.entryPx, p.liqPx]).filter(Boolean);
+  if (currentPx) allPrices.push(currentPx);
+  const pMin = Math.min(...allPrices) * 0.97;
+  const pMax = Math.max(...allPrices) * 1.03;
+  const pRange = pMax - pMin;
+
+  const W = 780, H = 420, PAD_L = 90, PAD_R = 40, PAD_T = 30, PAD_B = 40;
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
+
+  const py = price => PAD_T + chartH - ((price - pMin) / pRange) * chartH;
+  const maxVal = Math.max(...positions.map(p => p.posVal || 1));
+
+  // Y-axis labels
+  const steps = 8;
+  let yLabels = '';
+  for (let i = 0; i <= steps; i++) {
+    const price = pMin + (pRange * i / steps);
+    const y = py(price);
+    yLabels += `<text x="${PAD_L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="#888" font-family="monospace">${fmtK(price)}</text>`;
+    yLabels += `<line x1="${PAD_L}" y1="${y}" x2="${PAD_L + chartW}" y2="${y}" stroke="#2a2a3a" stroke-width="1"/>`;
+  }
+
+  // Positions
+  let longs = '', shorts = '', liqBubbles = '', entryLines = '', tooltipRects = '';
+  positions.forEach((p, i) => {
+    const x = PAD_L + (chartW * (i + 0.5) / positions.length);
+    const entryY  = py(p.entryPx);
+    const liqY    = py(p.liqPx);
+    const dist    = currentPx > 0 ? Math.abs(p.liqPx - currentPx) / currentPx : 1;
+    const color   = dist < 0.05 ? 'var(--red)' : dist < 0.15 ? 'var(--yellow)' : '#555';
+    const r       = 6 + 18 * Math.sqrt((p.posVal || 1) / maxVal);
+    const isLong  = p.side === 'LONG';
+    const entryC  = isLong ? 'var(--green2)' : 'var(--red2)';
+
+    // Entry line (horizontal dash)
+    entryLines += `<line x1="${x - r - 4}" y1="${entryY}" x2="${x + r + 4}" y2="${entryY}" stroke="${entryC}" stroke-width="2" stroke-dasharray="4,2" opacity="0.9"/>`;
+
+    // Vertical connector entry → liq
+    liqBubbles += `<line x1="${x}" y1="${entryY}" x2="${x}" y2="${liqY}" stroke="${color}" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>`;
+
+    // Liquidation bubble
+    liqBubbles += `<circle cx="${x}" cy="${liqY}" r="${r}" fill="${color}" opacity="0.75"/>`;
+
+    // Liq price label
+    liqBubbles += `<text x="${x}" y="${liqY + 3}" text-anchor="middle" font-size="9" fill="#fff" font-weight="600">${fmtK(p.liqPx)}</text>`;
+
+    // Tooltip hitbox
+    const tip = `${p.label||shortAddr(p.wallet)} · ${p.side} ${fmtUsd(p.posVal)} · Entrada: ${fmtK(p.entryPx)} · Liq: ${fmtK(p.liqPx)} · Dist: ${(dist*100).toFixed(1)}%`;
+    tooltipRects += `<rect x="${x-r}" y="${Math.min(entryY,liqY)-r}" width="${r*2}" height="${Math.abs(entryY-liqY)+r*2}" fill="transparent"><title>${tip}</title></rect>`;
+  });
+
+  // Current price line
+  let currentLine = '';
+  if (currentPx) {
+    const cy = py(currentPx);
+    currentLine = `
+      <line x1="${PAD_L}" y1="${cy}" x2="${PAD_L + chartW}" y2="${cy}" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6,3"/>
+      <rect x="${PAD_L + chartW - 2}" y="${cy - 10}" width="${PAD_R - 4}" height="20" rx="3" fill="var(--accent)" opacity="0.9"/>
+      <text x="${PAD_L + chartW + PAD_R/2 - 1}" y="${cy + 4}" text-anchor="middle" font-size="9" fill="#000" font-weight="700">${fmtK(currentPx)}</text>`;
+  }
+
+  // Table below chart
+  const rows = [...positions].sort((a,b) => {
+    const da = currentPx ? Math.abs(a.liqPx - currentPx)/currentPx : 1;
+    const db = currentPx ? Math.abs(b.liqPx - currentPx)/currentPx : 1;
+    return da - db;
+  }).slice(0, 15).map(p => {
+    const dist = currentPx ? (Math.abs(p.liqPx - currentPx)/currentPx*100).toFixed(1) : '—';
+    const cls  = parseFloat(dist) < 5 ? 'neg' : parseFloat(dist) < 15 ? 'warn' : 'muted';
+    return `<tr>
+      <td>${p.label||shortAddr(p.wallet)}</td>
+      <td class="${p.side==='LONG'?'pos':'neg'}">${p.side}</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmtUsd(p.posVal)}</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmtK(p.entryPx)}</td>
+      <td style="text-align:right;font-family:var(--mono)" class="neg">${fmtK(p.liqPx)}</td>
+      <td style="text-align:right;font-family:var(--mono)" class="${cls}">${dist}%</td>
+      <td style="text-align:right" class="muted">${p.leverage}x</td>
+    </tr>`;
+  }).join('');
+
+  area.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;display:block;margin:0 auto;overflow:visible">
+      <rect width="${W}" height="${H}" fill="var(--bg2)" rx="6"/>
+      <!-- Y grid -->
+      ${yLabels}
+      <!-- X axis -->
+      <line x1="${PAD_L}" y1="${PAD_T+chartH}" x2="${PAD_L+chartW}" y2="${PAD_T+chartH}" stroke="#333" stroke-width="1"/>
+      <!-- Entry lines -->
+      ${entryLines}
+      <!-- Connectors + bubbles -->
+      ${liqBubbles}
+      <!-- Current price -->
+      ${currentLine}
+      <!-- Tooltips -->
+      ${tooltipRects}
+      <!-- Title -->
+      <text x="${PAD_L + chartW/2}" y="20" text-anchor="middle" font-size="12" fill="#ccc" font-weight="600">${coin} — Precios de Liquidación vs Precio Actual</text>
+    </svg>
+    <div style="margin-top:14px;overflow-x:auto">
+      <table class="pos-table" style="min-width:600px">
+        <thead><tr>
+          <th>Trader</th><th>Lado</th>
+          <th style="text-align:right">Valor</th>
+          <th style="text-align:right">Entrada</th>
+          <th style="text-align:right">Liq.</th>
+          <th style="text-align:right">Dist. %</th>
+          <th style="text-align:right">Lev.</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function fmtK(v) {
+  if (!v) return '0';
+  if (v >= 1000) return (v/1000).toFixed(1)+'K';
+  if (v >= 1)    return v.toFixed(2);
+  return v.toPrecision(4);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -789,16 +1029,28 @@ function parseLeaderboardRow(r, rank) {
 }
 
 function getFilteredLb() {
-  const q    = (document.getElementById('lb-search')?.value || '').toLowerCase();
+  const q      = (document.getElementById('lb-search')?.value||'').toLowerCase();
   const period = document.getElementById('lb-period').value;
+  const rkMin  = parseInt(document.getElementById('lbf-rk-min')?.value)||0;
+  const rkMax  = parseInt(document.getElementById('lbf-rk-max')?.value)||Infinity;
+  const pnlMin = parseFloat(document.getElementById('lbf-pnl')?.value)||(-Infinity);
+  const volMin = parseFloat(document.getElementById('lbf-vol')?.value)||0;
   return _lbData.filter(t => {
     if (q && !t.label.toLowerCase().includes(q) && !t.address.toLowerCase().includes(q)) return false;
-    if (_lbChip === 'whale')  return t.accountValue >= 1e6;
-    if (_lbChip === 'winner') return t[period].pnl > 0;
-    if (_lbChip === 'loser')  return t[period].pnl < 0;
-    if (_lbChip === 'day')    return Math.abs(t.day.pnl) > 100;
+    if (rkMin && t.rank < rkMin) return false;
+    if (rkMax < Infinity && t.rank > rkMax) return false;
+    if (t[period].pnl < pnlMin) return false;
+    if (t.allTime.vlm < volMin) return false;
+    if (_lbChip==='whale')  return t.accountValue >= 1e6;
+    if (_lbChip==='winner') return t[period].pnl > 0;
+    if (_lbChip==='loser')  return t[period].pnl < 0;
+    if (_lbChip==='day')    return Math.abs(t.day.pnl) > 100;
     return true;
   });
+}
+function resetLbFilters() {
+  ['lbf-rk-min','lbf-rk-max','lbf-pnl','lbf-vol'].forEach(id=>{ const e=document.getElementById(id); if(e)e.value=''; });
+  renderLeaderboard();
 }
 
 function renderLeaderboard() {
@@ -1066,39 +1318,116 @@ function recordSentiment() {
   if (_sentHistory.length>60) _sentHistory.shift();
 }
 function updateSentimiento() {
-  const positions=_allPositions;
-  const coinEl=document.getElementById('coin-bar-list');
-  const summEl=document.getElementById('sent-summary');
-  if (!positions.length) {
-    updateGauge(50);
-    coinEl.innerHTML=`<div style="font-size:11px;color:var(--muted2);font-style:italic">Actualizá posiciones primero</div>`;
-    summEl.innerHTML=`<div style="font-size:11px;color:var(--muted2);font-style:italic;text-align:center">Sin datos</div>`;
-    renderSentHistory(); return;
+  if (!_allPositions.length) {
+    document.getElementById('sent2-list-body').innerHTML = '<div class="sent2-empty"><div style="font-size:28px;opacity:.3">📊</div><div class="empty-text">Actualizá posiciones primero</div></div>';
+    document.getElementById('sent2-detail').innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--muted)"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".25"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span style="font-size:12px">Sin datos de posiciones</span></div>';
+    return;
   }
-  const s=calcSentiment(positions);
-  updateGauge(s.longPct);
-  summEl.innerHTML=`
-    <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg2);border-radius:5px">
-      <span style="color:var(--green)">LONG</span><span class="pos">${fmtUsd(s.longVal)}</span><span class="pos">${s.longPct.toFixed(1)}%</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg2);border-radius:5px">
-      <span style="color:var(--red)">SHORT</span><span class="neg">${fmtUsd(s.shortVal)}</span><span class="neg">${s.shortPct.toFixed(1)}%</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg2);border-radius:5px">
-      <span style="color:var(--muted)">Exposición neta</span><span class="${s.exposure>=0?'pos':'neg'}">${fmtPnl(s.exposure)}</span></div>`;
-  const byC={};
-  positions.forEach(p=>{ if(!byC[p.coin])byC[p.coin]={l:0,s:0}; if(p.side==='LONG')byC[p.coin].l+=p.posVal; else byC[p.coin].s+=p.posVal; });
-  const sorted=Object.entries(byC).sort((a,b)=>(b[1].l+b[1].s)-(a[1].l+a[1].s));
-  const maxT=Math.max(...sorted.map(([,d])=>d.l+d.s),1);
-  coinEl.innerHTML=sorted.map(([coin,d])=>{
-    const tot=d.l+d.s, lPct=d.l/tot*100, bW=tot/maxT*100;
-    return `<div class="coin-bar-row">
-      <span class="coin-bar-name">${coin}</span>
-      <div class="coin-bar-track" style="max-width:${bW}%">
-        <div class="coin-bar-l" style="width:${lPct}%"></div>
-        <div class="coin-bar-s" style="width:${100-lPct}%"></div>
+  _sentAssets = buildAssetSentiment(_allPositions);
+  renderSentAssetList();
+  if (_selectedSentAsset) renderSentAssetDetail(_selectedSentAsset);
+  recordSentiment();
+}
+
+function buildAssetSentiment(positions) {
+  const byA = {};
+  positions.forEach(p => {
+    if (!byA[p.coin]) byA[p.coin] = { coin:p.coin, lv:0, sv:0, lc:0, sc:0, wallets:[] };
+    if (p.side==='LONG') { byA[p.coin].lv+=p.posVal; byA[p.coin].lc++; }
+    else { byA[p.coin].sv+=p.posVal; byA[p.coin].sc++; }
+    byA[p.coin].wallets.push(p);
+  });
+  return Object.values(byA).sort((a,b)=>(b.lv+b.sv)-(a.lv+a.sv));
+}
+
+let _sentAssets = [];
+let _selectedSentAsset = null;
+
+function renderSentAssetList() {
+  const q = (document.getElementById('sent-search')?.value||'').toLowerCase();
+  const items = _sentAssets.filter(a => !q || a.coin.toLowerCase().includes(q));
+  const el = document.getElementById('sent2-list-body');
+  if (!items.length) { el.innerHTML='<div class="sent2-empty"><div style="font-size:24px;opacity:.3">🔍</div><div class="empty-text">Sin resultados</div></div>'; return; }
+  el.innerHTML = items.map(a => {
+    const tot=a.lv+a.sv||1, lPct=a.lv/tot*100;
+    const isSel = _selectedSentAsset===a.coin;
+    return `<div class="sent2-item${isSel?' sel':''}" onclick="selectSentAsset('${a.coin}')">
+      <span class="sent2-coin">${a.coin}</span>
+      <div class="sent2-bar-wrap">
+        <div class="sent2-bar-track">
+          <div class="sent2-bar-l" style="width:${lPct}%"></div>
+          <div class="sent2-bar-s" style="width:${100-lPct}%"></div>
+        </div>
+        <div class="sent2-bar-lbl">
+          <span style="color:var(--green)">${lPct.toFixed(0)}%L</span>
+          <span style="color:var(--red)">${(100-lPct).toFixed(0)}%S</span>
+        </div>
       </div>
-      <span class="coin-bar-val">${fmtUsd(tot)}</span></div>`;
+      <span class="sent2-val">${fmtUsd(a.lv+a.sv)}</span>
+    </div>`;
   }).join('');
-  renderSentHistory();
+}
+
+function filterSentAssets() { renderSentAssetList(); }
+
+function selectSentAsset(coin) {
+  _selectedSentAsset = coin;
+  renderSentAssetList();
+  renderSentAssetDetail(coin);
+}
+
+function renderSentAssetDetail(coin) {
+  const a = _sentAssets.find(x=>x.coin===coin);
+  const el = document.getElementById('sent2-detail');
+  if (!a) return;
+  const tot=a.lv+a.sv||1, lPct=a.lv/tot*100;
+  const totalDash=251, longDash=(lPct/100)*totalDash;
+  const positions = [...a.wallets].sort((x,y)=>y.posVal-x.posVal);
+  el.innerHTML = `
+    <div class="sent2-detail-hdr">
+      <span class="sent2-detail-coin">${coin}</span>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3)">LONG ${lPct.toFixed(1)}%</span>
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3)">SHORT ${(100-lPct).toFixed(1)}%</span>
+      </div>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)">Total: ${fmtUsd(a.lv+a.sv)}</span>
+    </div>
+    <div class="sent2-gauge-row">
+      <svg viewBox="0 0 200 110" width="180" height="100" style="flex-shrink:0">
+        <path d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--bg3)" stroke-width="14" stroke-linecap="round"/>
+        <path d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--red2)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="0"/>
+        <path d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--green2)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="${(totalDash-longDash).toFixed(1)}"/>
+        <text x="100" y="86" text-anchor="middle" font-size="20" font-weight="700" fill="var(--text)" font-family="monospace">${lPct.toFixed(0)}%</text>
+        <text x="100" y="100" text-anchor="middle" font-size="8" fill="var(--muted)">% long</text>
+      </svg>
+      <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+        <div style="font-size:11px;display:flex;justify-content:space-between;padding:4px 8px;background:var(--bg2);border-radius:5px"><span style="color:var(--green)">Long</span><span class="pos">${fmtUsd(a.lv)}</span><span style="color:var(--muted)">${a.lc} pos</span></div>
+        <div style="font-size:11px;display:flex;justify-content:space-between;padding:4px 8px;background:var(--bg2);border-radius:5px"><span style="color:var(--red)">Short</span><span class="neg">${fmtUsd(a.sv)}</span><span style="color:var(--muted)">${a.sc} pos</span></div>
+        <div style="font-size:11px;display:flex;justify-content:space-between;padding:4px 8px;background:var(--bg2);border-radius:5px"><span style="color:var(--muted)">Neto</span><span class="${a.lv-a.sv>=0?'pos':'neg'}">${fmtPnl(a.lv-a.sv)}</span></div>
+      </div>
+    </div>
+    <div class="sent2-detail-body">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:var(--bg1);position:sticky;top:0;z-index:2">
+          <th style="padding:6px 10px;text-align:left;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)">Wallet</th>
+          <th style="padding:6px 10px;text-align:left;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)">Lado</th>
+          <th style="padding:6px 10px;text-align:right;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)">Valor</th>
+          <th style="padding:6px 10px;text-align:right;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)">PnL</th>
+          <th style="padding:6px 10px;text-align:right;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)">Entrada</th>
+          <th style="padding:6px 10px;text-align:right;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)">Liq.</th>
+          <th style="padding:6px 10px;text-align:right;color:var(--muted);font-size:10px;font-weight:600;border-bottom:1px solid var(--border)">Lev.</th>
+        </tr></thead>
+        <tbody>${positions.map(p=>`<tr style="border-bottom:1px solid rgba(48,54,61,.4)">
+          <td style="padding:6px 10px"><div style="font-weight:600">${p.label}</div><div style="font-size:9px;color:var(--muted);font-family:var(--mono)">${shortAddr(p.wallet)}</div></td>
+          <td style="padding:6px 10px;font-weight:700" class="tag-${p.side.toLowerCase()}">${p.side}</td>
+          <td style="padding:6px 10px;text-align:right;font-family:var(--mono)">${fmtUsd(p.posVal)}</td>
+          <td style="padding:6px 10px;text-align:right;font-family:var(--mono)" class="${p.upnl>=0?'pos':'neg'}">${fmtPnl(p.upnl)}</td>
+          <td style="padding:6px 10px;text-align:right;font-family:var(--mono);color:var(--muted)">${fmtUsd(p.entryPx)}</td>
+          <td style="padding:6px 10px;text-align:right;font-family:var(--mono)" class="${p.liqPx>0?'neg':'muted'}">${p.liqPx>0?fmtUsd(p.liqPx):'—'}</td>
+          <td style="padding:6px 10px;text-align:right;font-family:var(--mono);color:var(--muted)">${p.leverage}x</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
 }
 function updateGauge(longPct) {
   const t=251, ld=(longPct/100)*t;
@@ -1257,148 +1586,61 @@ function detectAlerts(wallet,current) {
       msg:`GRANDE: ${wLabel} ${p.side} ${p.coin} | ${fmtUsd(p.posVal)} | ${p.leverage}x`});
   });
 }
-function addAlert(a) {
-  _alerts.unshift({...a,time:new Date()});
-  if (_alerts.length>500) _alerts.pop();
-  _alertCount++; _alertKpis[a.type]=(_alertKpis[a.type]||0)+1;
-  updateAlertKpis(); renderAlerts(); updateAlertBadge();
-  if (_soundOn) playBeep();
-}
-function setAlertFilter(el) {
-  document.querySelectorAll('.chip[data-af]').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active'); _alertFilter=el.dataset.af; renderAlerts();
-}
-function renderAlerts() {
-  const filtered=_alertFilter==='all'?_alerts:_alerts.filter(a=>a.type===_alertFilter);
-  const el=document.getElementById('alerts-list');
-  document.getElementById('alerts-count').textContent=`${filtered.length} alertas`;
-  if (!filtered.length) { el.innerHTML=`<div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">Sin alertas</div></div>`; return; }
-  el.innerHTML=filtered.map(a=>`
-    <div class="alert-item">
-      <div class="alert-time">${a.time.toLocaleTimeString()}</div>
-      <div class="alert-type ${a.type}">${a.typeLabel}</div>
-      <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">${a.wallet} · <strong style="color:var(--accent)">${a.coin}</strong></div>
-      <div class="alert-msg">${a.msg}</div></div>
-    </div>`).join('');
-}
-function updateAlertKpis() {
-  document.getElementById('ak-new').textContent   =_alertKpis['new-pos']||0;
-  document.getElementById('ak-close').textContent =_alertKpis['close-pos']||0;
-  document.getElementById('ak-pnl').textContent   =_alertKpis['pnl-chg']||0;
-  document.getElementById('ak-whale').textContent =_alertKpis.whale||0;
-}
-function clearAlerts() {
-  _alerts=[]; _alertCount=0; _alertKpis={'new-pos':0,'close-pos':0,'pnl-chg':0,whale:0};
-  updateAlertKpis(); renderAlerts(); updateAlertBadge();
-}
-function updateAlertBadge() {
-  const b=document.getElementById('alert-badge');
-  if (_alertCount>0) { b.style.display='inline-flex'; b.textContent=_alertCount>99?'99+':_alertCount; }
-  else b.style.display='none';
-}
-function toggleSound() {
-  _soundOn=!_soundOn;
-  document.getElementById('btn-sound').textContent='🔔 Sonido: '+(_soundOn?'ON':'OFF');
-}
-function playBeep() {
-  try { const ctx=new AudioContext(),osc=ctx.createOscillator(),g=ctx.createGain();
-    osc.connect(g); g.connect(ctx.destination); osc.frequency.value=880;
-    g.gain.setValueAtTime(.3,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.3);
-    osc.start(); osc.stop(ctx.currentTime+.3); } catch(e){}
-}
 function exportCsv() {
-  const rows=_alerts.map(a=>[a.time.toISOString(),a.type,a.wallet,a.coin,'"'+a.msg.replace(/"/g,'""')+'"'].join(','));
-  const csv='Tiempo,Tipo,Wallet,Coin,Mensaje\n'+rows.join('\n');
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='alertas_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+  const rows = _alerts.map(a => [a.time, a.typeLabel, a.wallet, a.coin, a.msg].join('\t'));
+  const blob = new Blob([['Time\tType\tWallet\tCoin\tMsg', ...rows].join('\n')], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `hl_alerts_${Date.now()}.csv`; a.click();
 }
 
-// QUICK LOOKUP
 async function quickLookup() {
-  let addr=(document.getElementById('ql-input').value||'').trim();
-  if (!addr) return;
-  if (!addr.startsWith('0x')) addr='0x'+addr;
-  const modal=document.getElementById('lookup-modal'), ov=document.getElementById('overlay');
-  modal.classList.add('open'); ov.classList.add('open');
-  document.getElementById('lookup-name').textContent='Cargando...';
-  document.getElementById('lookup-addr-disp').textContent=addr;
-  document.getElementById('lookup-body').innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Consultando...</div></div>`;
+  const addr = document.getElementById('ql-addr')?.value?.trim();
+  const out  = document.getElementById('ql-result');
+  if (!addr || !out) return;
+  out.textContent = '⏳…';
   try {
-    const data=await hlPost({type:'clearinghouseState',user:addr.toLowerCase()});
-    const summary=data.crossMarginSummary||data.marginSummary||{};
-    const av=parseFloat(summary.accountValue||'0');
-    const positions=(data.assetPositions||[]).filter(w=>w.position&&Math.abs(parseFloat(w.position.szi||'0'))>0).map(w=>{
-      const p=w.position,sz=parseFloat(p.szi||'0');
-      return {coin:p.coin,side:sz>=0?'LONG':'SHORT',posVal:parseFloat(p.positionValue||'0'),
-        upnl:parseFloat(p.unrealizedPnl||'0'),leverage:p.leverage?.value||0};
-    });
-    document.getElementById('lookup-name').textContent=shortAddr(addr);
-    const rows=positions.sort((a,b)=>b.posVal-a.posVal).map(p=>`<tr>
-      <td style="padding:5px;font-weight:700;color:var(--accent)">${p.coin}</td>
-      <td style="padding:5px;font-weight:700" class="tag-${p.side.toLowerCase()}">${p.side}</td>
-      <td style="padding:5px;text-align:right;font-family:var(--mono)">${fmtUsd(p.posVal)}</td>
-      <td style="padding:5px;text-align:right;font-family:var(--mono)" class="${p.upnl>=0?'pos':'neg'}">${fmtPnl(p.upnl)}</td>
-      <td style="padding:5px;text-align:right;font-family:var(--mono);color:var(--muted)">${p.leverage}x</td>
-    </tr>`).join('');
-    document.getElementById('lookup-body').innerHTML=`
-      <div class="metric-grid">
-        <div class="metric-box"><div class="metric-label">Cuenta</div><div class="metric-val">${fmtUsd(av)}</div></div>
-        <div class="metric-box"><div class="metric-label">Posiciones</div><div class="metric-val">${positions.length}</div></div>
-      </div>
-      ${positions.length?`<table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr>
-        <th style="text-align:left;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">Asset</th>
-        <th style="text-align:left;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">Lado</th>
-        <th style="text-align:right;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">Valor</th>
-        <th style="text-align:right;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">PnL</th>
-        <th style="text-align:right;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">Lev</th>
-      </tr></thead><tbody>${rows}</tbody></table>`
-      :`<div class="empty" style="height:80px"><div class="empty-icon">📍</div><div class="empty-text">Sin posiciones</div></div>`}
-      <div style="display:flex;gap:7px;margin-top:6px">
-        <button class="btn btn-success" onclick="trackAddr('${addr}','')">+ Monitorear</button>
-        <button class="btn btn-ghost" onclick="copyAddr('${addr}')">Copiar</button>
-      </div>`;
-  } catch(e) {
-    document.getElementById('lookup-body').innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">${e.message}</div></div>`;
-  }
+    const data = await hlPost({ type: 'clearinghouseState', user: addr });
+    const pos  = data.assetPositions || [];
+    if (!pos.length) { out.textContent = 'Sin posiciones abiertas.'; return; }
+    out.innerHTML = pos.map(ap => {
+      const p = ap.position;
+      const side = parseFloat(p.szi) > 0 ? 'LONG' : 'SHORT';
+      return `<b>${p.coin}</b> ${side} ${Math.abs(parseFloat(p.szi))} @ ${fmtUsd(parseFloat(p.entryPx))} | PnL: ${fmtPnl(parseFloat(p.unrealizedPnl))}`;
+    }).join('<br>');
+  } catch(e) { out.textContent = `❌ ${e.message}`; }
 }
+
 function closeLookup() {
-  document.getElementById('lookup-modal').classList.remove('open');
-  document.getElementById('overlay').classList.remove('open');
+  const p = document.getElementById('ql-panel');
+  if (p) p.style.display='none';
 }
 
-// HELPERS
 function shortAddr(a) { if(!a||a.length<12)return a; return a.slice(0,6)+'…'+a.slice(-4); }
+
 function fmtUsd(v) {
-  if(!v)return '$0'; const abs=Math.abs(v);
-  if(abs>=1e9)return '$'+(v/1e9).toFixed(2)+'B';
-  if(abs>=1e6)return '$'+(v/1e6).toFixed(2)+'M';
-  if(abs>=1e3)return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0});
-  return '$'+v.toFixed(2);
-}
-function fmtPnl(v) {
-  if(!v)return '$0'; const abs=Math.abs(v);
-  const s=abs>=1e9?(abs/1e9).toFixed(2)+'B':abs>=1e6?(abs/1e6).toFixed(2)+'M':abs.toLocaleString('en-US',{maximumFractionDigits:0});
-  return (v>=0?'+':'-')+'$'+s;
-}
-function fmtVol(v) {
-  if(!v)return '$0';
-  if(v>=1e9)return '$'+(v/1e9).toFixed(1)+'B';
-  if(v>=1e6)return '$'+(v/1e6).toFixed(1)+'M';
-  if(v>=1e3)return '$'+(v/1e3).toFixed(0)+'K';
-  return '$'+v.toFixed(0);
-}
-function setLive(on) {
-  document.getElementById('sdot').classList.toggle('live',on);
-  document.getElementById('stext').textContent=on?'Live (60s)':'Offline';
+  if (v === undefined || v === null || isNaN(v)) return '—';
+  const abs = Math.abs(v);
+  const s = v < 0 ? '-' : '';
+  if (abs >= 1e9) return s + '$' + (abs/1e9).toFixed(2) + 'B';
+  if (abs >= 1e6) return s + '$' + (abs/1e6).toFixed(2) + 'M';
+  if (abs >= 1e3) return s + '$' + (abs/1e3).toFixed(1) + 'K';
+  return s + '$' + abs.toFixed(2);
 }
 
-// INIT
-renderWallets();
-renderAlerts();
-updateAlertKpis();
-setPosView('table');
-updateGauge(50);
+function fmtPnl(v) {
+  if (isNaN(v)) return '—';
+  const cls = v >= 0 ? 'pos' : 'neg';
+  return `<span class="${cls}">${v >= 0 ? '+' : ''}${fmtUsd(v)}</span>`;
+}
+
+function fmtVol(v) { return fmtUsd(v); }
+
+function setLive(on) {
+  document.getElementById('btn-start').style.display = on ? 'none' : '';
+  document.getElementById('btn-stop').style.display  = on ? '' : 'none';
+  document.getElementById('kpi-live').textContent = on ? '🟢 Live' : '⚫ Offline';
+}
+
 </script>
 </body>
 </html>
