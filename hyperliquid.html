@@ -6,454 +6,767 @@
 <title>Hyperliquid Whale Tracker · Trading Different</title>
 <style>
 :root {
-  --bg0:      #0d1117;
-  --bg1:      #161b22;
-  --bg2:      #1c2128;
-  --bg3:      #21262d;
-  --border:   #30363d;
-  --text:     #e6edf3;
-  --muted:    #7d8590;
-  --accent:   #388bfd;
-  --green:    #3fb950;
-  --red:      #f85149;
-  --yellow:   #d29922;
-  --purple:   #bc8cff;
-  --font:     'Segoe UI', system-ui, sans-serif;
-  --mono:     'JetBrains Mono','Cascadia Code','Courier New', monospace;
+  --bg0:#0d1117; --bg1:#161b22; --bg2:#1c2128; --bg3:#21262d; --bg4:#2d333b;
+  --border:#30363d; --border2:#3d4450;
+  --text:#e6edf3; --muted:#7d8590; --muted2:#57606a;
+  --accent:#388bfd; --accent2:#1f6feb;
+  --green:#3fb950; --green2:#238636;
+  --red:#f85149;   --red2:#da3633;
+  --yellow:#d29922; --purple:#bc8cff; --orange:#f0883e;
+  --font:'Segoe UI',system-ui,sans-serif;
+  --mono:'JetBrains Mono','Cascadia Code','Courier New',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg0);color:var(--text);font-family:var(--font);font-size:13px;overflow:hidden}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex-direction:column;height:100vh}
+
+/* ── HEADER ── */
+.header{
+  display:flex;align-items:center;gap:10px;padding:8px 14px;
+  background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;
+  min-height:44px;
+}
+.brand{font-size:13px;font-weight:700;color:var(--text);text-decoration:none;white-space:nowrap}
+.brand span{color:var(--accent)}
+.hsep{width:1px;height:18px;background:var(--border);flex-shrink:0}
+.htitle{font-size:13px;font-weight:600;white-space:nowrap}
+.hsub{font-size:10px;color:var(--muted);margin-left:2px}
+
+/* Quick Lookup */
+.quick-lookup{display:flex;align-items:center;gap:5px;margin-left:12px;flex:1;max-width:340px}
+.quick-lookup input{
+  flex:1;background:var(--bg2);color:var(--text);border:1px solid var(--border);
+  border-radius:5px;padding:4px 10px;font-size:11px;font-family:var(--mono);outline:none;
+  transition:border-color .15s;
+}
+.quick-lookup input::placeholder{color:var(--muted2);font-family:var(--font)}
+.quick-lookup input:focus{border-color:var(--accent)}
+.quick-lookup button{
+  padding:4px 9px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg3);color:var(--muted);font-size:11px;cursor:pointer;
+  transition:all .15s;white-space:nowrap;
+}
+.quick-lookup button:hover{background:var(--bg4);color:var(--text)}
+
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.status-pill{
+  display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:10px;
+  background:var(--bg2);border:1px solid var(--border);font-size:10px;color:var(--muted);
+  font-family:var(--mono);
+}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0}
+.sdot.live{background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.back-btn{
+  display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:5px;
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  font-size:11px;cursor:pointer;text-decoration:none;transition:all .15s;
+}
+.back-btn:hover{background:var(--bg3);color:var(--text)}
+
+/* ── KPI STRIP ── */
+.kpi-strip{
+  display:flex;align-items:stretch;gap:0;
+  background:var(--bg1);border-bottom:1px solid var(--border);
+  flex-shrink:0;overflow-x:auto;
+}
+.kpi-strip::-webkit-scrollbar{height:3px}
+.kpi-strip::-webkit-scrollbar-thumb{background:var(--border)}
+.kpi-item{
+  display:flex;flex-direction:column;justify-content:center;
+  padding:6px 16px;border-right:1px solid var(--border);
+  min-width:110px;flex-shrink:0;
+}
+.kpi-item:last-child{border-right:none}
+.kpi-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.kpi-value{font-size:14px;font-weight:700;font-family:var(--mono);line-height:1}
+.kpi-sub{font-size:9px;color:var(--muted);margin-top:1px}
+
+/* ── TABS ── */
+.tabs-bar{
+  display:flex;background:var(--bg1);border-bottom:1px solid var(--border);
+  flex-shrink:0;padding:0 14px;
+}
+.tab-btn{
+  padding:8px 14px;border:none;background:transparent;color:var(--muted);
+  font-size:12px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .15s;white-space:nowrap;
+}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:15px;height:15px;border-radius:8px;background:var(--red);
+  color:#fff;font-size:9px;font-weight:700;padding:0 4px;margin-left:4px;
 }
 
-*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
-html,body { height:100%; background:var(--bg0); color:var(--text); font-family:var(--font); font-size:13px; overflow:hidden; }
+/* ── CONTENT ── */
+.content{flex:1;min-height:0;overflow:hidden;position:relative}
+.tab-panel{display:none;height:100%;flex-direction:column;overflow:hidden}
+.tab-panel.active{display:flex}
 
-/* ─── LAYOUT ─────────────────────────────────────────────────── */
-.app { display:flex; flex-direction:column; height:100vh; }
-
-/* ─── HEADER ─────────────────────────────────────────────────── */
-.header {
-  display:flex; align-items:center; gap:12px;
-  padding:10px 16px;
-  background:var(--bg1);
-  border-bottom:1px solid var(--border);
-  flex-shrink:0;
+/* ── TOOLBAR ── */
+.toolbar{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;
+  padding:7px 14px;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;
 }
-.header-logo { display:flex; align-items:center; gap:8px; text-decoration:none; }
-.header-logo .brand { font-size:13px; font-weight:700; color:var(--text); }
-.header-logo .brand span { color:var(--accent); }
-.header-sep { width:1px; height:20px; background:var(--border); }
-.header-title { font-size:13px; font-weight:600; color:var(--text); }
-.header-sub   { font-size:10px; color:var(--muted); margin-left:4px; }
+.toolbar-label{font-size:10px;color:var(--muted)}
 
-.header-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
-.status-dot { width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0; }
-.status-dot.live { background:var(--green); animation:pulse 2s infinite; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-.status-text { font-size:11px; color:var(--muted); font-family:var(--mono); }
-
-.back-btn {
-  display:flex; align-items:center; gap:5px;
-  padding:4px 10px; border-radius:5px;
-  border:1px solid var(--border); background:transparent;
-  color:var(--muted); font-size:11px; cursor:pointer;
-  text-decoration:none;
-  transition:all .15s;
+/* ── FILTER CHIPS ── */
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{
+  padding:3px 10px;border-radius:12px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);font-size:11px;cursor:pointer;
+  transition:all .15s;white-space:nowrap;
 }
-.back-btn:hover { background:var(--bg3); color:var(--text); }
+.chip:hover{border-color:var(--accent);color:var(--text)}
+.chip.active{background:var(--accent2);border-color:var(--accent);color:#fff}
 
-/* ─── TABS ───────────────────────────────────────────────────── */
-.tabs-bar {
-  display:flex; gap:0;
-  background:var(--bg1);
-  border-bottom:1px solid var(--border);
-  flex-shrink:0;
-  padding:0 16px;
+/* ── BUTTONS ── */
+.btn{
+  display:inline-flex;align-items:center;gap:4px;padding:5px 11px;
+  border-radius:5px;border:none;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;
 }
-.tab-btn {
-  padding:9px 16px; border:none; background:transparent;
-  color:var(--muted); font-size:12px; font-weight:500;
-  cursor:pointer; border-bottom:2px solid transparent;
-  transition:all .15s; white-space:nowrap;
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#58a6ff}
+.btn-success{background:var(--green2);color:#fff}
+.btn-success:hover{background:var(--green)}
+.btn-danger{background:var(--red2);color:#fff}
+.btn-danger:hover{background:var(--red)}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg3);color:var(--text)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── INPUTS ── */
+input[type=text],input[type=number],select{
+  background:var(--bg2);color:var(--text);border:1px solid var(--border);
+  border-radius:5px;padding:4px 9px;font-size:11px;font-family:var(--font);
+  outline:none;transition:border-color .15s;
 }
-.tab-btn:hover  { color:var(--text); }
-.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
-.badge {
-  display:inline-flex; align-items:center; justify-content:center;
-  min-width:16px; height:16px; border-radius:8px;
-  background:var(--red); color:#fff; font-size:9px;
-  font-weight:700; padding:0 4px; margin-left:5px;
+input:focus,select:focus{border-color:var(--accent)}
+select option{background:var(--bg2)}
+
+/* ── LOADING BAR ── */
+.loading-bar{height:2px;background:linear-gradient(90deg,var(--accent),var(--purple));animation:lb 1.2s ease infinite;display:none}
+.loading-bar.active{display:block}
+@keyframes lb{0%{transform:scaleX(0);transform-origin:left}50%{transform:scaleX(1);transform-origin:left}51%{transform-origin:right}100%{transform:scaleX(0);transform-origin:right}}
+
+/* ── TABLE ── */
+.table-wrap{flex:1;overflow-y:auto;overflow-x:auto}
+.table-wrap::-webkit-scrollbar{width:5px;height:5px}
+.table-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead tr{background:var(--bg1);position:sticky;top:0;z-index:2}
+thead th{
+  padding:6px 10px;text-align:left;color:var(--muted);font-size:10px;font-weight:600;
+  border-bottom:1px solid var(--border);white-space:nowrap;user-select:none;cursor:pointer;
 }
+thead th:hover{color:var(--text)}
+thead th.sort-asc::after{content:' ↑'}
+thead th.sort-desc::after{content:' ↓'}
+tbody tr{border-bottom:1px solid rgba(48,54,61,.4);transition:background .1s}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:6px 10px;white-space:nowrap;font-family:var(--mono);font-size:11px}
 
-/* ─── CONTENT AREA ───────────────────────────────────────────── */
-.content { flex:1; min-height:0; overflow:hidden; position:relative; }
-.tab-panel { display:none; height:100%; flex-direction:column; overflow:hidden; }
-.tab-panel.active { display:flex; }
+.pos{color:var(--green)} .neg{color:var(--red)} .muted{color:var(--muted)}
+.tag-long{color:var(--green);font-weight:700} .tag-short{color:var(--red);font-weight:700}
+.rank-1{color:#ffd700} .rank-2{color:#c0c0c0} .rank-3{color:#cd7f32}
 
-/* ─── TOOLBAR ────────────────────────────────────────────────── */
-.toolbar {
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-  padding:8px 14px;
-  background:var(--bg1);
-  border-bottom:1px solid var(--border);
-  flex-shrink:0;
+/* ── SUMMARY ROW ── */
+.summary-row{
+  display:flex;gap:8px;padding:7px 14px;background:var(--bg1);
+  border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;
 }
-.toolbar-label { font-size:11px; color:var(--muted); }
-
-/* ─── BUTTONS ────────────────────────────────────────────────── */
-.btn {
-  display:inline-flex; align-items:center; gap:5px;
-  padding:5px 12px; border-radius:5px; border:none;
-  font-size:11px; font-weight:600; cursor:pointer;
-  transition:all .15s;
+.summary-row::-webkit-scrollbar{height:3px}
+.summary-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+  padding:6px 12px;display:flex;flex-direction:column;gap:1px;flex-shrink:0;
 }
-.btn-primary  { background:var(--accent); color:#fff; }
-.btn-primary:hover  { background:#58a6ff; }
-.btn-success  { background:#238636; color:#fff; }
-.btn-success:hover  { background:#2ea043; }
-.btn-danger   { background:#da3633; color:#fff; }
-.btn-danger:hover   { background:#f85149; }
-.btn-ghost    { background:transparent; color:var(--muted); border:1px solid var(--border); }
-.btn-ghost:hover    { background:var(--bg3); color:var(--text); }
-.btn:disabled { opacity:.4; cursor:not-allowed; }
+.summary-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.summary-value{font-size:13px;font-weight:700;font-family:var(--mono)}
 
-/* ─── INPUTS ─────────────────────────────────────────────────── */
-input[type=text], input[type=number], select {
-  background:var(--bg2); color:var(--text);
-  border:1px solid var(--border); border-radius:5px;
-  padding:5px 10px; font-size:12px; font-family:var(--font);
-  outline:none; transition:border-color .15s;
+/* ── LEADERBOARD SPLIT ── */
+.lb-layout{display:flex;height:100%;overflow:hidden}
+.lb-main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.lb-side{
+  width:300px;border-left:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+  background:var(--bg1);transition:width .2s;overflow:hidden;
 }
-input:focus, select:focus { border-color:var(--accent); }
-select option { background:var(--bg2); }
-
-/* ─── TABLE ──────────────────────────────────────────────────── */
-.table-wrap { flex:1; overflow-y:auto; overflow-x:auto; }
-.table-wrap::-webkit-scrollbar { width:6px; height:6px; }
-.table-wrap::-webkit-scrollbar-track { background:var(--bg1); }
-.table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-
-table { width:100%; border-collapse:collapse; font-size:12px; }
-thead tr { background:var(--bg1); position:sticky; top:0; z-index:2; }
-thead th {
-  padding:7px 10px; text-align:left;
-  color:var(--muted); font-size:10px; font-weight:600;
-  border-bottom:1px solid var(--border); white-space:nowrap;
-  user-select:none; cursor:pointer;
+.lb-side.collapsed{width:0}
+.lb-side-inner{width:300px;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.lb-side-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding-bottom:10px;border-bottom:1px solid var(--border);
 }
-thead th:hover { color:var(--text); }
-tbody tr { border-bottom:1px solid rgba(48,54,61,.5); transition:background .1s; }
-tbody tr:hover { background:var(--bg3); }
-tbody td { padding:7px 10px; white-space:nowrap; font-family:var(--mono); font-size:11px; }
-
-.pos  { color:var(--green); }
-.neg  { color:var(--red); }
-.muted{ color:var(--muted); }
-.tag-long  { color:var(--green); font-weight:700; }
-.tag-short { color:var(--red);   font-weight:700; }
-
-/* ─── CARDS ──────────────────────────────────────────────────── */
-.card {
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:8px; padding:14px 16px;
+.side-close{
+  background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;
+  padding:0 4px;line-height:1;
 }
-.card-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
-.card-value { font-size:18px; font-weight:700; font-family:var(--mono); }
+.side-close:hover{color:var(--text)}
 
-/* ─── WALLET MONITOR ─────────────────────────────────────────── */
-.wallet-list { display:flex; flex-direction:column; gap:6px; padding:12px 14px; overflow-y:auto; }
-.wallet-item {
-  display:flex; align-items:center; gap:10px;
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:6px; padding:8px 12px;
-}
-.wallet-addr { font-family:var(--mono); font-size:11px; color:var(--accent); flex:1; }
-.wallet-label { font-size:11px; color:var(--muted); min-width:100px; }
-.wallet-status { font-size:10px; color:var(--muted); min-width:80px; text-align:right; }
+/* Trader detail */
+.trader-name{font-size:14px;font-weight:700;margin-bottom:2px}
+.trader-addr{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.metric-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.metric-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.metric-val{font-size:13px;font-weight:700;font-family:var(--mono)}
 
-/* ─── ALERTS ─────────────────────────────────────────────────── */
-.alerts-list { flex:1; overflow-y:auto; padding:0; }
-.alert-item {
-  display:flex; align-items:flex-start; gap:12px;
-  padding:10px 14px; border-bottom:1px solid rgba(48,54,61,.5);
-  animation:fadeIn .3s ease;
-}
-@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
-.alert-time { font-family:var(--mono); font-size:10px; color:var(--muted); white-space:nowrap; margin-top:2px; }
-.alert-type { font-size:10px; font-weight:700; white-space:nowrap; min-width:90px; }
-.alert-type.new-pos  { color:var(--green); }
-.alert-type.close-pos{ color:var(--red); }
-.alert-type.pnl-chg  { color:var(--yellow); }
-.alert-type.whale    { color:var(--purple); }
-.alert-msg { font-size:11px; line-height:1.5; }
+/* Sparkline SVG */
+.spark{display:block;flex-shrink:0}
 
-/* ─── EMPTY STATE ────────────────────────────────────────────── */
-.empty {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  height:200px; gap:8px; color:var(--muted);
+/* ── POSITIONS ── */
+.pos-toolbar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:7px 14px;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;
 }
-.empty-icon { font-size:32px; opacity:.4; }
-.empty-text { font-size:12px; }
+.pos-body{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 
-/* ─── LOADING ────────────────────────────────────────────────── */
-.loading-bar {
-  height:2px; background:linear-gradient(90deg,var(--accent),var(--purple));
-  animation:loadbar 1.2s ease infinite;
-  display:none;
+/* Heatmap */
+.heatmap-bar{
+  flex-shrink:0;padding:10px 14px;background:var(--bg1);border-bottom:1px solid var(--border);
 }
-.loading-bar.active { display:block; }
-@keyframes loadbar {
-  0%   { transform:scaleX(0); transform-origin:left; }
-  50%  { transform:scaleX(1); transform-origin:left; }
-  51%  { transform-origin:right; }
-  100% { transform:scaleX(0); transform-origin:right; }
+.heatmap-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.heatmap-grid{display:flex;gap:4px;flex-wrap:wrap}
+.heatmap-cell{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:5px;padding:4px 8px;font-size:10px;font-weight:700;
+  cursor:pointer;transition:opacity .15s;min-width:52px;
 }
+.heatmap-cell:hover{opacity:.8}
+.heatmap-cell .hm-coin{font-size:11px;font-weight:700}
+.heatmap-cell .hm-val{font-size:9px;margin-top:1px;opacity:.85}
 
-/* ─── POSITIONS SPLIT ────────────────────────────────────────── */
-.pos-layout { display:flex; height:100%; gap:0; overflow:hidden; }
-.pos-sidebar { width:300px; border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
-.pos-main    { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-
-/* ─── RANK MEDAL ──────────────────────────────────────────────── */
-.rank-1 { color:#ffd700; }
-.rank-2 { color:#c0c0c0; }
-.rank-3 { color:#cd7f32; }
-
-/* ─── SUMMARY ROW ────────────────────────────────────────────── */
-.summary-row {
-  display:flex; gap:8px; padding:8px 14px;
-  background:var(--bg1); border-bottom:1px solid var(--border);
-  flex-shrink:0;
+/* Cards view */
+.cards-grid{
+  flex:1;overflow-y:auto;padding:10px 14px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;
 }
-.summary-card {
-  background:var(--bg2); border:1px solid var(--border); border-radius:6px;
-  padding:6px 12px; display:flex; flex-direction:column; gap:1px;
+.pos-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+  display:flex;flex-direction:column;gap:6px;transition:border-color .15s;cursor:default;
 }
-.summary-label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
-.summary-value { font-size:13px; font-weight:700; font-family:var(--mono); }
+.pos-card:hover{border-color:var(--border2)}
+.pos-card-header{display:flex;align-items:center;justify-content:space-between}
+.pos-card-coin{font-size:16px;font-weight:700;color:var(--accent)}
+.side-badge{
+  font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
+}
+.side-badge.long{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3)}
+.side-badge.short{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3)}
+.pos-card-pnl{font-size:18px;font-weight:700;font-family:var(--mono)}
+.pos-card-row{display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+.pos-card-row span:last-child{color:var(--text);font-family:var(--mono)}
+
+/* ── SENTIMIENTO TAB ── */
+.sent-layout{
+  flex:1;overflow-y:auto;display:grid;
+  grid-template-columns:280px 1fr;grid-template-rows:auto auto;gap:0;
+}
+.sent-layout::-webkit-scrollbar{width:5px}
+.sent-layout::-webkit-scrollbar-thumb{background:var(--border)}
+.sent-panel{
+  background:var(--bg1);border:1px solid var(--border);border-radius:0;
+  padding:16px;display:flex;flex-direction:column;gap:10px;
+}
+.sent-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.gauge-labels{display:flex;justify-content:space-between;width:100%;font-size:10px}
+.gauge-labels .label-long{color:var(--green)}
+.gauge-labels .label-short{color:var(--red)}
+.gauge-pct{font-size:28px;font-weight:700;font-family:var(--mono)}
+.gauge-sub{font-size:11px;color:var(--muted)}
+
+/* Coin exposure bars */
+.coin-bar-list{display:flex;flex-direction:column;gap:5px}
+.coin-bar-row{display:flex;align-items:center;gap:7px;font-size:11px}
+.coin-bar-name{font-weight:700;min-width:42px;color:var(--accent)}
+.coin-bar-track{flex:1;height:14px;background:var(--bg3);border-radius:7px;overflow:hidden;display:flex}
+.coin-bar-l{background:var(--green2);height:100%}
+.coin-bar-s{background:var(--red2);height:100%}
+.coin-bar-val{font-size:10px;color:var(--muted);min-width:60px;text-align:right;font-family:var(--mono)}
+
+/* History sparkline */
+.hist-wrap{
+  grid-column:1/-1;padding:14px 16px;background:var(--bg1);
+  border-top:1px solid var(--border);
+}
+.hist-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.hist-empty{font-size:11px;color:var(--muted2);font-style:italic}
+
+/* ── WALLETS ── */
+.wallet-list{display:flex;flex-direction:column;gap:5px;padding:10px 14px;overflow-y:auto}
+.wallet-item{
+  display:flex;align-items:center;gap:10px;background:var(--bg2);
+  border:1px solid var(--border);border-radius:6px;padding:8px 12px;
+}
+.wallet-addr{font-family:var(--mono);font-size:11px;color:var(--accent);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.wallet-status-text{font-size:10px;color:var(--muted);min-width:70px;text-align:right}
+
+/* ── ALERTS ── */
+.alerts-kpis{
+  display:flex;gap:8px;padding:7px 14px;background:var(--bg1);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.alert-kpi{
+  background:var(--bg2);border:1px solid var(--border);border-radius:5px;
+  padding:4px 10px;font-size:11px;display:flex;align-items:center;gap:6px;
+}
+.alert-kpi-n{font-weight:700;font-family:var(--mono)}
+.alerts-list{flex:1;overflow-y:auto}
+.alert-item{
+  display:flex;align-items:flex-start;gap:10px;padding:9px 14px;
+  border-bottom:1px solid rgba(48,54,61,.4);animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.alert-time{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;margin-top:2px;min-width:58px}
+.alert-type{font-size:10px;font-weight:700;white-space:nowrap;min-width:80px}
+.alert-type.new-pos{color:var(--green)} .alert-type.close-pos{color:var(--red)}
+.alert-type.pnl-chg{color:var(--yellow)} .alert-type.whale{color:var(--purple)}
+.alert-msg{font-size:11px;line-height:1.5;color:var(--text)}
+
+/* ── EMPTY ── */
+.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:180px;gap:7px;color:var(--muted);
+}
+.empty-icon{font-size:28px;opacity:.35}
+.empty-text{font-size:11px}
+
+/* ── LOOKUP RESULT ── */
+.lookup-result{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(520px,95vw);background:var(--bg1);border:1px solid var(--border);
+  border-radius:10px;z-index:100;display:none;flex-direction:column;overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+.lookup-result.open{display:flex}
+.lookup-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+}
+.lookup-body{padding:14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:60vh}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99;display:none}
+.overlay.open{display:block}
+
+/* scrollbars global */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- ── HEADER ──────────────────────────────────────────────── -->
-  <div class="header">
-    <a href="/" class="header-logo">
-      <span class="brand">Trading <span>Different</span></span>
-    </a>
-    <div class="header-sep"></div>
-    <span class="header-title">🐋 Hyperliquid Whale Tracker</span>
-    <span class="header-sub">— Leaderboard · Posiciones · Alertas</span>
+<!-- ── OVERLAY (lookup modal) ── -->
+<div class="overlay" id="overlay" onclick="closeLookup()"></div>
 
-    <div class="header-right">
-      <div id="status-dot" class="status-dot"></div>
-      <span id="status-text" class="status-text">Offline</span>
-      <a href="/" class="back-btn">← Dashboard</a>
+<!-- ── LOOKUP RESULT MODAL ── -->
+<div class="lookup-result" id="lookup-modal">
+  <div class="lookup-header">
+    <div>
+      <div id="lookup-name" style="font-size:13px;font-weight:700">—</div>
+      <div id="lookup-addr-disp" style="font-size:10px;color:var(--muted);font-family:var(--mono)"></div>
+    </div>
+    <button class="btn btn-ghost" onclick="closeLookup()">✕</button>
+  </div>
+  <div class="lookup-body" id="lookup-body">
+    <div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">Buscando…</div></div>
+  </div>
+</div>
+
+<!-- ── HEADER ── -->
+<div class="header">
+  <a href="/" class="brand">Trading <span>Different</span></a>
+  <div class="hsep"></div>
+  <span class="htitle">🐋 Whale Tracker</span>
+
+  <div class="quick-lookup">
+    <input id="ql-input" type="text" placeholder="0x… lookup rápido de wallet" maxlength="66"
+           onkeydown="if(event.key==='Enter')quickLookup()"/>
+    <button onclick="quickLookup()">🔍 Buscar</button>
+  </div>
+
+  <div class="header-right">
+    <div class="status-pill">
+      <div class="sdot" id="sdot"></div>
+      <span id="stext">Offline</span>
+    </div>
+    <a href="/" class="back-btn">← Dashboard</a>
+  </div>
+</div>
+
+<!-- ── KPI STRIP ── -->
+<div class="kpi-strip">
+  <div class="kpi-item">
+    <div class="kpi-label">🐋 Ballenas activas</div>
+    <div class="kpi-value" id="kpi-whales">—</div>
+    <div class="kpi-sub">wallets con posición</div>
+  </div>
+  <div class="kpi-item">
+    <div class="kpi-label">📍 Posiciones</div>
+    <div class="kpi-value" id="kpi-positions">—</div>
+    <div class="kpi-sub">abiertas ahora</div>
+  </div>
+  <div class="kpi-item">
+    <div class="kpi-label">📊 Sentimiento neto</div>
+    <div class="kpi-value" id="kpi-sentiment">—</div>
+    <div class="kpi-sub" id="kpi-sent-sub">% long por valor</div>
+  </div>
+  <div class="kpi-item">
+    <div class="kpi-label">💰 Exposición neta</div>
+    <div class="kpi-value" id="kpi-exposure">—</div>
+    <div class="kpi-sub">long − short</div>
+  </div>
+  <div class="kpi-item">
+    <div class="kpi-label">🏆 Top coin</div>
+    <div class="kpi-value" id="kpi-topcoin">—</div>
+    <div class="kpi-sub" id="kpi-topcoin-sub">por exposición</div>
+  </div>
+  <div class="kpi-item" style="margin-left:auto;min-width:90px;align-items:flex-end">
+    <div class="kpi-label">⏱ Actualizado</div>
+    <div class="kpi-value" style="font-size:11px" id="kpi-time">—</div>
+    <div class="kpi-sub" id="kpi-cycle">ciclo manual</div>
+  </div>
+</div>
+
+<!-- ── TABS ── -->
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="switchTab('leaderboard')">📊 Leaderboard</button>
+  <button class="tab-btn" onclick="switchTab('positions')" id="tab-positions">📍 Posiciones</button>
+  <button class="tab-btn" onclick="switchTab('sentimiento')">🧠 Sentimiento</button>
+  <button class="tab-btn" onclick="switchTab('wallets')">👁 Wallets</button>
+  <button class="tab-btn" onclick="switchTab('alerts')" id="tab-alerts">
+    🚨 Alertas <span class="badge" id="alert-badge" style="display:none">0</span>
+  </button>
+</div>
+
+<!-- ── CONTENT ── -->
+<div class="content">
+
+<!-- ════ LEADERBOARD ════ -->
+<div class="tab-panel active" id="panel-leaderboard">
+  <div class="loading-bar" id="lb-loading"></div>
+
+  <!-- Toolbar row 1: controls -->
+  <div class="toolbar">
+    <span class="toolbar-label">Top:</span>
+    <select id="lb-top" style="width:65px">
+      <option value="25">25</option><option value="50" selected>50</option>
+      <option value="100">100</option><option value="200">200</option>
+    </select>
+    <span class="toolbar-label">Período:</span>
+    <select id="lb-period" style="width:85px" onchange="renderLeaderboard()">
+      <option value="allTime" selected>All Time</option>
+      <option value="month">Mes</option>
+      <option value="week">Semana</option>
+      <option value="day">24h</option>
+    </select>
+    <button class="btn btn-primary" onclick="loadLeaderboard()">🔄 Cargar</button>
+    <button class="btn btn-success" onclick="trackSelected()" id="btn-track" disabled>➕ Monitorear</button>
+
+    <!-- Search -->
+    <div style="display:flex;align-items:center;gap:5px;margin-left:4px">
+      <input type="text" id="lb-search" placeholder="🔍 Buscar trader…" style="width:170px"
+             oninput="renderLeaderboard()"/>
+    </div>
+    <span id="lb-status" style="font-size:11px;color:var(--muted);margin-left:4px"></span>
+  </div>
+
+  <!-- Filter chips -->
+  <div class="toolbar" style="padding-top:5px;padding-bottom:5px;gap:6px">
+    <span class="toolbar-label">Filtrar:</span>
+    <div class="chips">
+      <button class="chip active" data-filter="all" onclick="setChip(this)">Todos</button>
+      <button class="chip" data-filter="whale" onclick="setChip(this)">🐋 Cuenta >$1M</button>
+      <button class="chip" data-filter="winner" onclick="setChip(this)">📈 Solo ganadores</button>
+      <button class="chip" data-filter="loser" onclick="setChip(this)">📉 Solo perdedores</button>
+      <button class="chip" data-filter="day" onclick="setChip(this)">⚡ Activos 24h</button>
     </div>
   </div>
 
-  <!-- ── TABS ────────────────────────────────────────────────── -->
-  <div class="tabs-bar">
-    <button class="tab-btn active" onclick="switchTab('leaderboard')">📊 Leaderboard</button>
-    <button class="tab-btn" onclick="switchTab('positions')" id="tab-positions">
-      📍 Posiciones
-    </button>
-    <button class="tab-btn" onclick="switchTab('wallets')">👁 Wallets</button>
-    <button class="tab-btn" onclick="switchTab('alerts')" id="tab-alerts">
-      🚨 Alertas <span class="badge" id="alert-badge" style="display:none">0</span>
-    </button>
-  </div>
+  <!-- Top 3 summary -->
+  <div class="summary-row" id="lb-summary" style="display:none"></div>
 
-  <!-- ── CONTENT ─────────────────────────────────────────────── -->
-  <div class="content">
-
-    <!-- ════ LEADERBOARD ════════════════════════════════════════ -->
-    <div class="tab-panel active" id="panel-leaderboard">
-      <div class="loading-bar" id="lb-loading"></div>
-      <div class="toolbar">
-        <span class="toolbar-label">Top:</span>
-        <select id="lb-top" style="width:70px">
-          <option value="25">25</option>
-          <option value="50" selected>50</option>
-          <option value="100">100</option>
-          <option value="200">200</option>
-        </select>
-        <span class="toolbar-label">Período:</span>
-        <select id="lb-period" style="width:90px" onchange="renderLeaderboard()">
-          <option value="allTime" selected>All Time</option>
-          <option value="month">Mes</option>
-          <option value="week">Semana</option>
-          <option value="day">24h</option>
-        </select>
-        <button class="btn btn-primary" onclick="loadLeaderboard()">🔄 Cargar</button>
-        <button class="btn btn-success" onclick="trackSelected()" id="btn-track" disabled>➕ Monitorear</button>
-        <span id="lb-status" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
-      </div>
-
-      <!-- Summary top 3 -->
-      <div class="summary-row" id="lb-summary" style="display:none"></div>
-
+  <!-- Split: table + side panel -->
+  <div class="lb-layout">
+    <div class="lb-main">
       <div class="table-wrap">
         <table id="lb-table">
           <thead>
             <tr>
-              <th style="width:40px">#</th>
-              <th>Wallet</th>
-              <th onclick="sortLb('accountValue')" title="Ordenar">Cuenta ↕</th>
-              <th onclick="sortLb('pnl')" title="Ordenar">PnL ↕</th>
-              <th onclick="sortLb('roi')" title="Ordenar">ROI% ↕</th>
-              <th>PnL Mes</th>
-              <th>ROI Mes%</th>
-              <th>PnL 7D</th>
-              <th>PnL 24H</th>
+              <th style="width:36px">#</th>
+              <th>Trader</th>
+              <th onclick="sortLb('accountValue')" id="th-acct">Cuenta</th>
+              <th onclick="sortLb('pnl')" id="th-pnl">PnL</th>
+              <th onclick="sortLb('roi')" id="th-roi">ROI%</th>
+              <th>Mes PnL</th>
+              <th>7D PnL</th>
+              <th>24H PnL</th>
               <th>Volumen</th>
-              <th style="width:60px">Acción</th>
+              <th>Spark 4P</th>
+              <th style="width:50px">+</th>
             </tr>
           </thead>
           <tbody id="lb-body">
-            <tr><td colspan="11"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Presioná "Cargar" para ver el leaderboard</div></div></td></tr>
+            <tr><td colspan="11">
+              <div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Presioná "Cargar" para ver el leaderboard</div></div>
+            </td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- ════ POSICIONES ════════════════════════════════════════ -->
-    <div class="tab-panel" id="panel-positions">
-      <div class="loading-bar" id="pos-loading"></div>
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="refreshPositions()" id="btn-refresh">🔄 Actualizar Todo</button>
-        <span id="pos-status" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
+    <!-- Trader Detail Side Panel -->
+    <div class="lb-side collapsed" id="lb-side">
+      <div class="lb-side-inner">
+        <div class="lb-side-header">
+          <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Detalle Trader</span>
+          <button class="side-close" onclick="closeSidePanel()">×</button>
+        </div>
+        <div id="side-content">
+          <div class="empty" style="height:120px"><div class="empty-icon">👆</div><div class="empty-text">Seleccioná un trader</div></div>
+        </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Wallet</th>
-              <th>Asset</th>
-              <th>Lado</th>
-              <th>Size</th>
-              <th>Entrada</th>
-              <th>Valor</th>
-              <th>PnL Unrealiz.</th>
-              <th>ROE%</th>
-              <th>Liquidación</th>
-              <th>Leverage</th>
-              <th>Actualizado</th>
-            </tr>
-          </thead>
-          <tbody id="pos-body">
-            <tr><td colspan="11"><div class="empty"><div class="empty-icon">📍</div><div class="empty-text">Agregá wallets en la pestaña "Wallets" y presioná Actualizar</div></div></td></tr>
-          </tbody>
-        </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════ POSICIONES ════ -->
+<div class="tab-panel" id="panel-positions">
+  <div class="loading-bar" id="pos-loading"></div>
+
+  <!-- Toolbar -->
+  <div class="pos-toolbar">
+    <button class="btn btn-primary" onclick="refreshPositions()" id="btn-refresh">🔄 Actualizar</button>
+    <div class="chips" style="margin-left:4px">
+      <button class="chip active" data-pf="all" onclick="setPosFilter(this)">Todos</button>
+      <button class="chip" data-pf="long" onclick="setPosFilter(this)">LONG</button>
+      <button class="chip" data-pf="short" onclick="setPosFilter(this)">SHORT</button>
+      <button class="chip" data-pf="50k" onclick="setPosFilter(this)">&gt;$50K</button>
+      <button class="chip" data-pf="100k" onclick="setPosFilter(this)">&gt;$100K</button>
+    </div>
+    <!-- View toggle -->
+    <div style="margin-left:auto;display:flex;gap:4px">
+      <button class="btn btn-ghost" id="btn-view-card" onclick="setPosView('card')" style="padding:4px 9px;font-size:11px">⊞ Cards</button>
+      <button class="btn btn-ghost" id="btn-view-table" onclick="setPosView('table')" style="padding:4px 9px;font-size:11px">☰ Tabla</button>
+    </div>
+    <span id="pos-status" style="font-size:11px;color:var(--muted);margin-left:6px"></span>
+  </div>
+
+  <!-- Asset exposure heatmap -->
+  <div class="heatmap-bar" id="heatmap-bar" style="display:none">
+    <div class="heatmap-title">📊 Mapa de Exposición por Asset</div>
+    <div class="heatmap-grid" id="heatmap-grid"></div>
+  </div>
+
+  <!-- Positions body: cards or table -->
+  <div class="pos-body" id="pos-body-wrap">
+    <!-- Cards view -->
+    <div class="cards-grid" id="pos-cards" style="display:none"></div>
+    <!-- Table view (default) -->
+    <div class="table-wrap" id="pos-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Wallet</th><th>Asset</th><th>Lado</th><th>Size</th>
+            <th>Entrada</th><th>Valor</th><th>PnL Unrealiz.</th>
+            <th>ROE%</th><th>Liquidación</th><th>Leverage</th><th>Hora</th>
+          </tr>
+        </thead>
+        <tbody id="pos-body">
+          <tr><td colspan="11">
+            <div class="empty"><div class="empty-icon">📍</div><div class="empty-text">Agregá wallets y presioná Actualizar</div></div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SENTIMIENTO ════ -->
+<div class="tab-panel" id="panel-sentimiento">
+  <div class="toolbar" style="justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;color:var(--muted)">Análisis de sentimiento basado en wallets monitoreadas</span>
+    </div>
+    <button class="btn btn-ghost" onclick="updateSentimiento()">🔄 Calcular</button>
+  </div>
+
+  <div class="sent-layout">
+    <!-- Gauge panel -->
+    <div class="sent-panel" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">
+      <div class="sent-title">⚖️ Long vs Short</div>
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 200 110" width="200" height="110">
+          <!-- track -->
+          <path d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--bg3)" stroke-width="16" stroke-linecap="round"/>
+          <!-- short arc (red, right half initially) -->
+          <path id="gauge-short-arc" d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--red2)" stroke-width="16" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="0"/>
+          <!-- long arc (green) -->
+          <path id="gauge-long-arc" d="M20,100 A80,80,0,0,1,180,100" fill="none" stroke="var(--green2)" stroke-width="16" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251"/>
+          <text x="100" y="88" text-anchor="middle" font-size="22" font-weight="700" fill="var(--text)" font-family="monospace" id="gauge-pct-text">—%</text>
+          <text x="100" y="104" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="sans-serif">% long por valor</text>
+        </svg>
+        <div class="gauge-labels" style="width:200px">
+          <span class="label-short">SHORT</span>
+          <span class="label-long">LONG</span>
+        </div>
+      </div>
+      <div id="sent-summary" style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+        <div style="font-size:11px;color:var(--muted2);font-style:italic;text-align:center">Sin datos — agregá wallets y actualizá</div>
       </div>
     </div>
 
-    <!-- ════ WALLETS MONITOREADAS ════════════════════════════════ -->
-    <div class="tab-panel" id="panel-wallets">
-      <!-- Add form -->
-      <div class="toolbar" style="flex-wrap:wrap;gap:8px">
-        <input type="text" id="new-addr" placeholder="0x… Wallet Address" style="width:300px" onkeydown="if(event.key==='Enter')addWallet()"/>
-        <input type="text" id="new-label" placeholder="Label (opcional)" style="width:150px" onkeydown="if(event.key==='Enter')addWallet()"/>
-        <input type="number" id="new-threshold" value="5" min="1" max="100" style="width:70px" title="Umbral PnL% para alerta"/>
-        <span class="toolbar-label">% alerta PnL</span>
-        <button class="btn btn-success" onclick="addWallet()">➕ Agregar</button>
-        <button class="btn btn-ghost" onclick="startMonitor()" id="btn-start-monitor">▶ Iniciar Monitor (60s)</button>
-        <button class="btn btn-danger" onclick="stopMonitor()" id="btn-stop-monitor" style="display:none">⏹ Detener</button>
-        <span id="monitor-status" style="font-size:11px;color:var(--muted)"></span>
-      </div>
-
-      <div class="wallet-list" id="wallet-list">
-        <div class="empty"><div class="empty-icon">👁</div><div class="empty-text">No hay wallets monitoreadas. Agregá una arriba.</div></div>
+    <!-- Coin exposure panel -->
+    <div class="sent-panel" style="border-bottom:1px solid var(--border);overflow-y:auto">
+      <div class="sent-title">💹 Exposición por Coin</div>
+      <div class="coin-bar-list" id="coin-bar-list">
+        <div style="font-size:11px;color:var(--muted2);font-style:italic">Sin datos</div>
       </div>
     </div>
 
-    <!-- ════ ALERTAS ════════════════════════════════════════════ -->
-    <div class="tab-panel" id="panel-alerts">
-      <div class="toolbar">
-        <button class="btn btn-ghost" onclick="clearAlerts()">🗑 Limpiar</button>
-        <span id="alerts-count" style="font-size:11px;color:var(--muted);margin-left:8px">Sin alertas</span>
-      </div>
-      <div class="alerts-list" id="alerts-list">
-        <div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">Las alertas aparecerán aquí cuando el monitor detecte cambios</div></div>
+    <!-- History sparkline (full width) -->
+    <div class="hist-wrap">
+      <div class="hist-title">📈 Evolución del Sentimiento (sesión actual)</div>
+      <div id="sent-history-chart">
+        <p class="hist-empty">El historial se registra automáticamente cada vez que actualizás las posiciones.</p>
       </div>
     </div>
+  </div>
+</div>
 
-  </div><!-- /content -->
+<!-- ════ WALLETS ════ -->
+<div class="tab-panel" id="panel-wallets">
+  <div class="toolbar" style="flex-wrap:wrap;gap:7px">
+    <input type="text" id="new-addr" placeholder="0x… Wallet Address" style="width:280px"
+           onkeydown="if(event.key==='Enter')addWallet()"/>
+    <input type="text" id="new-label" placeholder="Label (opcional)" style="width:130px"
+           onkeydown="if(event.key==='Enter')addWallet()"/>
+    <input type="number" id="new-threshold" value="5" min="1" max="100" style="width:60px" title="Umbral PnL% para alerta"/>
+    <span class="toolbar-label">% alerta</span>
+    <button class="btn btn-success" onclick="addWallet()">➕ Agregar</button>
+    <div style="display:flex;gap:5px;margin-left:auto">
+      <button class="btn btn-primary" onclick="startMonitor()" id="btn-start-monitor">▶ Monitor 60s</button>
+      <button class="btn btn-danger" onclick="stopMonitor()" id="btn-stop-monitor" style="display:none">⏹ Detener</button>
+    </div>
+    <span id="monitor-status" style="font-size:11px;color:var(--muted);min-width:200px"></span>
+  </div>
+  <div class="wallet-list" id="wallet-list">
+    <div class="empty"><div class="empty-icon">👁</div><div class="empty-text">No hay wallets. Agregá una arriba.</div></div>
+  </div>
+</div>
+
+<!-- ════ ALERTAS ════ -->
+<div class="tab-panel" id="panel-alerts">
+  <!-- KPIs -->
+  <div class="alerts-kpis" id="alerts-kpis">
+    <div class="alert-kpi"><span>🆕</span><span class="alert-kpi-n" id="ak-new">0</span><span style="font-size:10px;color:var(--muted)">Nuevas posiciones</span></div>
+    <div class="alert-kpi"><span>🔴</span><span class="alert-kpi-n" id="ak-close">0</span><span style="font-size:10px;color:var(--muted)">Cierres</span></div>
+    <div class="alert-kpi"><span>📈</span><span class="alert-kpi-n" id="ak-pnl">0</span><span style="font-size:10px;color:var(--muted)">Cambios PnL</span></div>
+    <div class="alert-kpi"><span>🐋</span><span class="alert-kpi-n" id="ak-whale">0</span><span style="font-size:10px;color:var(--muted)">Ballenas</span></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="chips">
+      <button class="chip active" data-af="all" onclick="setAlertFilter(this)">Todos</button>
+      <button class="chip" data-af="new-pos" onclick="setAlertFilter(this)">🆕 Nuevas</button>
+      <button class="chip" data-af="close-pos" onclick="setAlertFilter(this)">🔴 Cierres</button>
+      <button class="chip" data-af="pnl-chg" onclick="setAlertFilter(this)">📈 PnL</button>
+      <button class="chip" data-af="whale" onclick="setAlertFilter(this)">🐋 Ballenas</button>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:5px;align-items:center">
+      <button class="btn btn-ghost" id="btn-sound" onclick="toggleSound()" title="Sonido de alerta">🔔 Sonido: OFF</button>
+      <button class="btn btn-ghost" onclick="exportCsv()">📥 CSV</button>
+      <button class="btn btn-ghost" onclick="clearAlerts()">🗑 Limpiar</button>
+    </div>
+    <span id="alerts-count" style="font-size:11px;color:var(--muted);margin-left:4px">Sin alertas</span>
+  </div>
+
+  <div class="alerts-list" id="alerts-list">
+    <div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">Las alertas aparecen cuando el monitor detecta cambios</div></div>
+  </div>
+</div>
+
+</div><!-- /content -->
 </div><!-- /app -->
 
 <script>
 'use strict';
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 //  API
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 const HL_API       = 'https://api.hyperliquid.xyz/info';
 const HL_STATS_API = 'https://stats-data.hyperliquid.xyz/Mainnet';
 
 async function hlPost(body) {
-  const res = await fetch(HL_API, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body)
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const r = await fetch(HL_API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
 }
-
 async function hlGet(path) {
-  const res = await fetch(HL_STATS_API + path, {
-    headers: { 'Accept': 'application/json' }
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const r = await fetch(HL_STATS_API + path, { headers:{'Accept':'application/json'} });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  ESTADO
-// ═══════════════════════════════════════════════════════════════
-let _lbData      = [];       // leaderboard raw
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let _lbData      = [];
 let _lbSortKey   = 'pnl';
 let _lbSortDir   = -1;
-let _selectedRow = null;
+let _selectedAddr = null;
 let _wallets     = JSON.parse(localStorage.getItem('hl_wallets') || '[]');
-let _positions   = {};       // addr → [positions]
-let _prevPos     = {};       // addr → [positions] (para diff)
+let _positions   = {};      // addr → [pos]
+let _prevPos     = {};
+let _allPositions = [];     // flat list
 let _alerts      = [];
-let _monitorTimer = null;
+let _alertKpis   = { 'new-pos':0, 'close-pos':0, 'pnl-chg':0, whale:0 };
 let _alertCount  = 0;
+let _alertFilter = 'all';
+let _monitorTimer = null;
+let _posView     = 'table';
+let _posFilter   = 'all';
+let _lbChip      = 'all';
+let _soundOn     = false;
+let _sentHistory = [];   // [{time, longPct, exposure}]
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 //  TABS
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    const panels = ['leaderboard','positions','wallets','alerts'];
-    b.classList.toggle('active', panels[i] === name);
-  });
+  const panels = ['leaderboard','positions','sentimiento','wallets','alerts'];
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', panels[i]===name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
+  if (name==='sentimiento') updateSentimiento();
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 //  LEADERBOARD
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 async function loadLeaderboard() {
   const topN = parseInt(document.getElementById('lb-top').value);
-  const bar  = document.getElementById('lb-loading');
-  const status = document.getElementById('lb-status');
+  const bar   = document.getElementById('lb-loading');
+  const status= document.getElementById('lb-status');
   bar.classList.add('active');
   status.textContent = '⏳ Cargando…';
   document.getElementById('btn-track').disabled = true;
-
   try {
-    // Hyperliquid leaderboard está en stats-data, NO en api.hyperliquid.xyz/info
     const data = await hlGet('/leaderboard');
-    // Estructura: { leaderboardRows: [...] }
     const rows = (data.leaderboardRows || data || []).slice(0, topN);
-    _lbData = rows.map((r, i) => parseLeaderboardRow(r, i + 1));
+    _lbData = rows.map((r, i) => parseLeaderboardRow(r, i+1));
     renderLeaderboard();
     renderLbSummary();
     status.textContent = `✅ ${_lbData.length} traders · ${new Date().toLocaleTimeString()}`;
   } catch(e) {
-    // Fallback: intentar con userFills de wallets conocidas o mostrar error claro
-    status.textContent = `❌ ${e.message} — La API de leaderboard puede requerir VPN en algunas regiones`;
+    status.textContent = `❌ ${e.message}`;
   } finally {
     bar.classList.remove('active');
   }
@@ -462,31 +775,49 @@ async function loadLeaderboard() {
 function parseLeaderboardRow(r, rank) {
   const perf = {};
   (r.windowPerformances || []).forEach(([win, d]) => { perf[win] = d; });
-  const parse = v => parseFloat(v || '0');
+  const p = v => parseFloat(v || '0');
   return {
     rank,
     address:      r.ethAddress || '',
     label:        r.displayName || shortAddr(r.ethAddress || ''),
-    accountValue: parse(r.accountValue),
-    allTime: { pnl: parse(perf.allTime?.pnl), roi: parse(perf.allTime?.roi)*100, vlm: parse(perf.allTime?.vlm) },
-    month:   { pnl: parse(perf.month?.pnl),   roi: parse(perf.month?.roi)*100 },
-    week:    { pnl: parse(perf.week?.pnl),    roi: parse(perf.week?.roi)*100 },
-    day:     { pnl: parse(perf.day?.pnl),     roi: parse(perf.day?.roi)*100 },
+    accountValue: p(r.accountValue),
+    allTime: { pnl: p(perf.allTime?.pnl), roi: p(perf.allTime?.roi)*100, vlm: p(perf.allTime?.vlm) },
+    month:   { pnl: p(perf.month?.pnl),   roi: p(perf.month?.roi)*100 },
+    week:    { pnl: p(perf.week?.pnl),    roi: p(perf.week?.roi)*100 },
+    day:     { pnl: p(perf.day?.pnl),     roi: p(perf.day?.roi)*100 },
   };
 }
 
-function renderLeaderboard() {
+function getFilteredLb() {
+  const q    = (document.getElementById('lb-search')?.value || '').toLowerCase();
   const period = document.getElementById('lb-period').value;
-  const sorted = [..._lbData].sort((a, b) => {
-    let va, vb;
-    if (_lbSortKey === 'accountValue') { va = a.accountValue; vb = b.accountValue; }
-    else if (_lbSortKey === 'roi')     { va = a[period].roi;  vb = b[period].roi; }
-    else                               { va = a[period].pnl;  vb = b[period].pnl; }
+  return _lbData.filter(t => {
+    if (q && !t.label.toLowerCase().includes(q) && !t.address.toLowerCase().includes(q)) return false;
+    if (_lbChip === 'whale')  return t.accountValue >= 1e6;
+    if (_lbChip === 'winner') return t[period].pnl > 0;
+    if (_lbChip === 'loser')  return t[period].pnl < 0;
+    if (_lbChip === 'day')    return Math.abs(t.day.pnl) > 100;
+    return true;
+  });
+}
+
+function renderLeaderboard() {
+  const period  = document.getElementById('lb-period').value;
+  const sorted  = getFilteredLb().sort((a,b) => {
+    const va = _lbSortKey==='accountValue' ? a.accountValue : _lbSortKey==='roi' ? a[period].roi : a[period].pnl;
+    const vb = _lbSortKey==='accountValue' ? b.accountValue : _lbSortKey==='roi' ? b[period].roi : b[period].pnl;
     return _lbSortDir * (vb - va);
   });
 
-  const monitoredSet = new Set(_wallets.map(w => w.address.toLowerCase()));
+  // Sort indicators
+  ['acct','pnl','roi'].forEach(k => {
+    const el = document.getElementById(`th-${k}`);
+    if (!el) return;
+    el.className = _lbSortKey === (k==='acct'?'accountValue':k==='pnl'?'pnl':'roi')
+      ? (_lbSortDir===-1?'sort-desc':'sort-asc') : '';
+  });
 
+  const monitored = new Set(_wallets.map(w => w.address.toLowerCase()));
   const body = document.getElementById('lb-body');
   if (!sorted.length) {
     body.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">Sin datos</div></div></td></tr>`;
@@ -494,430 +825,580 @@ function renderLeaderboard() {
   }
 
   body.innerHTML = sorted.map(t => {
-    const p = t[period];
-    const isMonitored = monitoredSet.has(t.address.toLowerCase());
-    const rankClass = t.rank === 1 ? 'rank-1' : t.rank === 2 ? 'rank-2' : t.rank === 3 ? 'rank-3' : '';
-    return `<tr onclick="selectLbRow('${t.address}')" style="cursor:pointer;${_selectedRow===t.address?'background:rgba(56,139,253,.12)':''}">
-      <td class="${rankClass}" style="text-align:center">${t.rank <= 3 ? ['🥇','🥈','🥉'][t.rank-1] : t.rank}</td>
+    const per = t[period];
+    const isM = monitored.has(t.address.toLowerCase());
+    const rk  = t.rank<=3 ? ['🥇','🥈','🥉'][t.rank-1] : t.rank;
+    const rkC = t.rank<=3 ? `rank-${t.rank}` : '';
+    const sel = _selectedAddr === t.address ? 'background:rgba(56,139,253,.1);' : '';
+    const spark = makeSpark(t);
+    return `<tr onclick="selectTrader('${t.address}')" style="cursor:pointer;${sel}">
+      <td class="${rkC}" style="text-align:center">${rk}</td>
       <td>
-        <div style="font-weight:600;color:${isMonitored?'var(--green)':'var(--text)'}">${t.label} ${isMonitored?'👁':''}</div>
+        <div style="font-weight:600;color:${isM?'var(--green)':'var(--text)'}">${t.label}${isM?' 👁':''}</div>
         <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${shortAddr(t.address)}</div>
       </td>
       <td>${fmtUsd(t.accountValue)}</td>
-      <td class="${p.pnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(p.pnl)}</td>
-      <td class="${p.roi >= 0 ? 'pos' : 'neg'}">${p.roi >= 0 ? '+' : ''}${p.roi.toFixed(2)}%</td>
-      <td class="${t.month.pnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(t.month.pnl)}</td>
-      <td class="${t.month.roi >= 0 ? 'pos' : 'neg'}">${t.month.roi >= 0 ? '+' : ''}${t.month.roi.toFixed(2)}%</td>
-      <td class="${t.week.pnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(t.week.pnl)}</td>
-      <td class="${t.day.pnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(t.day.pnl)}</td>
+      <td class="${per.pnl>=0?'pos':'neg'}">${fmtPnl(per.pnl)}</td>
+      <td class="${per.roi>=0?'pos':'neg'}">${(per.roi>=0?'+':'')+per.roi.toFixed(2)}%</td>
+      <td class="${t.month.pnl>=0?'pos':'neg'}">${fmtPnl(t.month.pnl)}</td>
+      <td class="${t.week.pnl>=0?'pos':'neg'}">${fmtPnl(t.week.pnl)}</td>
+      <td class="${t.day.pnl>=0?'pos':'neg'}">${fmtPnl(t.day.pnl)}</td>
       <td class="muted">${fmtVol(t.allTime.vlm)}</td>
-      <td><button class="btn btn-ghost" style="padding:3px 7px;font-size:10px" onclick="event.stopPropagation();trackAddr('${t.address}','${t.label}')">${isMonitored?'✓':'➕'}</button></td>
+      <td>${spark}</td>
+      <td><button class="btn btn-ghost" style="padding:2px 6px;font-size:10px"
+            onclick="event.stopPropagation();trackAddr('${t.address}','${t.label}')">${isM?'✓':'➕'}</button></td>
     </tr>`;
   }).join('');
 }
 
+function makeSpark(t) {
+  // 4-point sparkline: day, week, month, allTime
+  const pts = [t.day.pnl, t.week.pnl, t.month.pnl, t.allTime.pnl];
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const range = max - min || 1;
+  const W=52, H=18, pad=2;
+  const xs = pts.map((_,i) => pad + i * ((W-pad*2)/3));
+  const ys = pts.map(v => H - pad - ((v-min)/range)*(H-pad*2));
+  const d  = xs.map((x,i) => `${i===0?'M':'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+  const col= t.allTime.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" class="spark">
+    <polyline points="${xs.map((x,i)=>x.toFixed(1)+','+ys[i].toFixed(1)).join(' ')}"
+      fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${xs.map((x,i)=>`<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="2" fill="${col}"/>`).join('')}
+  </svg>`;
+}
+
 function renderLbSummary() {
-  const top3 = _lbData.slice(0, 3);
-  const summary = document.getElementById('lb-summary');
-  if (!top3.length) { summary.style.display = 'none'; return; }
-  summary.style.display = 'flex';
+  const top3   = _lbData.slice(0,3);
+  const summary= document.getElementById('lb-summary');
+  if (!top3.length) { summary.style.display='none'; return; }
+  summary.style.display='flex';
   summary.innerHTML = top3.map((t,i) => `
     <div class="summary-card">
       <div class="summary-label">${['🥇','🥈','🥉'][i]} Top ${i+1}</div>
       <div class="summary-value">${fmtUsd(t.accountValue)}</div>
       <div style="font-size:10px;color:var(--muted)">${t.label}</div>
       <div style="font-size:11px;margin-top:2px" class="${t.allTime.pnl>=0?'pos':'neg'}">${fmtPnl(t.allTime.pnl)}</div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
 function sortLb(key) {
-  if (_lbSortKey === key) _lbSortDir *= -1;
-  else { _lbSortKey = key; _lbSortDir = -1; }
+  if (_lbSortKey===key) _lbSortDir*=-1;
+  else { _lbSortKey=key; _lbSortDir=-1; }
   renderLeaderboard();
 }
 
-function selectLbRow(addr) {
-  _selectedRow = addr;
+function setChip(el) {
+  document.querySelectorAll('.chips .chip[data-filter]').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  _lbChip = el.dataset.filter;
+  renderLeaderboard();
+}
+
+function selectTrader(addr) {
+  _selectedAddr = addr;
   document.getElementById('btn-track').disabled = false;
   document.getElementById('btn-track').onclick = () => {
-    const t = _lbData.find(x => x.address === addr);
+    const t = _lbData.find(x => x.address===addr);
     if (t) trackAddr(t.address, t.label);
   };
   renderLeaderboard();
+  openSidePanel(addr);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  POSICIONES
-// ═══════════════════════════════════════════════════════════════
+function openSidePanel(addr) {
+  const side = document.getElementById('lb-side');
+  side.classList.remove('collapsed');
+  const t = _lbData.find(x => x.address===addr);
+  if (!t) return;
+  const spark = makeSpark(t);
+  document.getElementById('side-content').innerHTML = `
+    <div class="trader-name">${t.label}</div>
+    <div class="trader-addr">${t.address}</div>
+    <div class="metric-grid" style="margin-top:8px">
+      <div class="metric-box"><div class="metric-label">Cuenta</div><div class="metric-val">${fmtUsd(t.accountValue)}</div></div>
+      <div class="metric-box"><div class="metric-label">Rank</div><div class="metric-val">#${t.rank}</div></div>
+      <div class="metric-box"><div class="metric-label">PnL All Time</div><div class="metric-val ${t.allTime.pnl>=0?'pos':'neg'}">${fmtPnl(t.allTime.pnl)}</div></div>
+      <div class="metric-box"><div class="metric-label">ROI All Time</div><div class="metric-val ${t.allTime.roi>=0?'pos':'neg'}">${(t.allTime.roi>=0?'+':'')+t.allTime.roi.toFixed(2)}%</div></div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-top:6px">
+      <div class="metric-label" style="margin-bottom:5px">PnL 24H / 7D / Mes / All</div>
+      <div style="display:flex;justify-content:center;margin-bottom:4px">${spark}</div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted)"><span>24H</span><span>7D</span><span>Mes</span><span>All</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+      ${[['24H',t.day],['7D',t.week],['Mes',t.month],['All Time',t.allTime]].map(([lbl,d])=>`
+      <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 8px;background:var(--bg2);border-radius:5px">
+        <span style="color:var(--muted)">${lbl}</span>
+        <span class="${d.pnl>=0?'pos':'neg'}">${fmtPnl(d.pnl)}</span>
+        <span class="${d.roi>=0?'pos':'neg'}">${(d.roi>=0?'+':'')+d.roi.toFixed(2)}%</span>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn btn-success" style="flex:1" onclick="trackAddr('${t.address}','')">+ Monitorear</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="copyAddr('${t.address}')">Copiar</button>
+    </div>`;
+}
+
+function closeSidePanel() {
+  document.getElementById('lb-side').classList.add('collapsed');
+  _selectedAddr = null; renderLeaderboard();
+}
+function copyAddr(addr) { try { navigator.clipboard.writeText(addr); } catch(e){} }
+
+// POSITIONS
 async function fetchPositions(wallet) {
-  const data = await hlPost({ type: 'clearinghouseState', user: wallet.address.toLowerCase() });
+  const data = await hlPost({ type:'clearinghouseState', user: wallet.address.toLowerCase() });
   const summary = data.crossMarginSummary || data.marginSummary || {};
   const positions = (data.assetPositions || [])
-    .filter(w => w.position && Math.abs(parseFloat(w.position.szi || '0')) > 0)
+    .filter(w => w.position && Math.abs(parseFloat(w.position.szi||'0')) > 0)
     .map(w => {
-      const p = w.position;
-      const size = parseFloat(p.szi || '0');
-      return {
-        wallet:    wallet.address,
-        label:     wallet.label || shortAddr(wallet.address),
-        coin:      p.coin || '?',
-        side:      size >= 0 ? 'LONG' : 'SHORT',
-        size:      Math.abs(size),
-        entryPx:   parseFloat(p.entryPx || '0'),
-        posVal:    parseFloat(p.positionValue || '0'),
-        upnl:      parseFloat(p.unrealizedPnl || '0'),
-        roe:       parseFloat(p.returnOnEquity || '0') * 100,
-        liqPx:     parseFloat(p.liquidationPx || '0'),
-        leverage:  p.leverage?.value || 0,
-        levType:   p.leverage?.type || 'cross',
-        updated:   new Date(),
-        accountVal: parseFloat(summary.accountValue || '0'),
-      };
+      const p = w.position, size = parseFloat(p.szi||'0');
+      return { wallet: wallet.address, label: wallet.label || shortAddr(wallet.address),
+        coin: p.coin||'?', side: size>=0?'LONG':'SHORT', size: Math.abs(size),
+        entryPx: parseFloat(p.entryPx||'0'), posVal: parseFloat(p.positionValue||'0'),
+        upnl: parseFloat(p.unrealizedPnl||'0'), roe: parseFloat(p.returnOnEquity||'0')*100,
+        liqPx: parseFloat(p.liquidationPx||'0'), leverage: p.leverage?.value||0,
+        levType: p.leverage?.type||'cross', updated: new Date(),
+        accountVal: parseFloat(summary.accountValue||'0') };
     });
-  return { positions, accountVal: parseFloat(summary.accountValue || '0') };
+  return { positions, accountVal: parseFloat(summary.accountValue||'0') };
 }
 
 async function refreshPositions() {
-  if (!_wallets.length) {
-    document.getElementById('pos-status').textContent = '⚠️ No hay wallets. Agregá en la pestaña Wallets.';
-    return;
+  if (!_wallets.length) { document.getElementById('pos-status').textContent='No hay wallets.'; return; }
+  const bar=document.getElementById('pos-loading'), st=document.getElementById('pos-status');
+  bar.classList.add('active'); st.textContent=`Actualizando...`;
+  const allPos=[];
+  for (const w of _wallets.filter(x=>x.active)) {
+    try { const {positions}=await fetchPositions(w); _positions[w.address]=positions; allPos.push(...positions); }
+    catch(e) { st.textContent=`Error: ${e.message}`; }
   }
-  const bar = document.getElementById('pos-loading');
-  const status = document.getElementById('pos-status');
-  bar.classList.add('active');
-  status.textContent = `⏳ Actualizando ${_wallets.length} wallet(s)…`;
-
-  const allPos = [];
-  for (const w of _wallets.filter(x => x.active)) {
-    try {
-      const { positions } = await fetchPositions(w);
-      _positions[w.address] = positions;
-      allPos.push(...positions);
-    } catch(e) {
-      status.textContent = `⚠️ Error en ${shortAddr(w.address)}: ${e.message}`;
-    }
-  }
-
-  renderPositions(allPos);
+  _allPositions=allPos; renderPositions(); renderHeatmap(); updateKpis(); recordSentiment();
   bar.classList.remove('active');
-  status.textContent = `✅ ${allPos.length} posiciones · ${new Date().toLocaleTimeString()}`;
+  st.textContent=`${allPos.length} posiciones · ${new Date().toLocaleTimeString()}`;
 }
 
-function renderPositions(positions) {
-  const body = document.getElementById('pos-body');
-  if (!positions.length) {
-    body.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="empty-icon">📍</div><div class="empty-text">Sin posiciones abiertas en las wallets monitoreadas</div></div></td></tr>`;
-    return;
-  }
-  const sorted = [...positions].sort((a,b) => b.posVal - a.posVal);
-  body.innerHTML = sorted.map(p => `
-    <tr>
-      <td>
-        <div style="font-weight:600">${p.label}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:var(--mono)">${shortAddr(p.wallet)}</div>
-      </td>
+function setPosFilter(el) {
+  document.querySelectorAll('.chip[data-pf]').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); _posFilter=el.dataset.pf; renderPositions();
+}
+function setPosView(v) {
+  _posView=v;
+  document.getElementById('pos-cards').style.display      = v==='card' ?'':'none';
+  document.getElementById('pos-table-wrap').style.display = v==='table'?'':'none';
+  document.getElementById('btn-view-card').style.background  = v==='card' ?'var(--bg4)':'';
+  document.getElementById('btn-view-table').style.background = v==='table'?'var(--bg4)':'';
+  renderPositions();
+}
+function getFilteredPositions() {
+  return _allPositions.filter(p=>{
+    if (_posFilter==='long')  return p.side==='LONG';
+    if (_posFilter==='short') return p.side==='SHORT';
+    if (_posFilter==='50k')   return p.posVal>=50000;
+    if (_posFilter==='100k')  return p.posVal>=100000;
+    return true;
+  });
+}
+function renderPositions() {
+  const sorted=[...getFilteredPositions()].sort((a,b)=>b.posVal-a.posVal);
+  if (_posView==='table') {
+    const body=document.getElementById('pos-body');
+    if (!sorted.length) { body.innerHTML=`<tr><td colspan="11"><div class="empty"><div class="empty-icon">📍</div><div class="empty-text">Sin posiciones</div></div></td></tr>`; return; }
+    body.innerHTML=sorted.map(p=>`<tr>
+      <td><div style="font-weight:600">${p.label}</div><div style="font-size:10px;color:var(--muted)">${shortAddr(p.wallet)}</div></td>
       <td style="font-weight:700;color:var(--accent)">${p.coin}</td>
       <td class="tag-${p.side.toLowerCase()}">${p.side}</td>
-      <td>${p.size.toFixed(4)}</td>
-      <td>${fmtUsd(p.entryPx)}</td>
-      <td>${fmtUsd(p.posVal)}</td>
-      <td class="${p.upnl >= 0 ? 'pos' : 'neg'}">${fmtPnl(p.upnl)}</td>
-      <td class="${p.roe >= 0 ? 'pos' : 'neg'}">${p.roe >= 0 ? '+' : ''}${p.roe.toFixed(2)}%</td>
-      <td class="muted">${p.liqPx > 0 ? fmtUsd(p.liqPx) : '—'}</td>
+      <td>${p.size.toFixed(4)}</td><td>${fmtUsd(p.entryPx)}</td><td>${fmtUsd(p.posVal)}</td>
+      <td class="${p.upnl>=0?'pos':'neg'}">${fmtPnl(p.upnl)}</td>
+      <td class="${p.roe>=0?'pos':'neg'}">${(p.roe>=0?'+':'')+p.roe.toFixed(2)}%</td>
+      <td class="muted">${p.liqPx>0?fmtUsd(p.liqPx):'—'}</td>
       <td class="muted">${p.leverage}x ${p.levType}</td>
       <td class="muted">${p.updated.toLocaleTimeString()}</td>
-    </tr>
-  `).join('');
+    </tr>`).join('');
+  } else {
+    const grid=document.getElementById('pos-cards');
+    if (!sorted.length) { grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📍</div><div class="empty-text">Sin posiciones</div></div>`; return; }
+    grid.innerHTML=sorted.map(p=>`
+      <div class="pos-card">
+        <div class="pos-card-header"><span class="pos-card-coin">${p.coin}</span><span class="side-badge ${p.side.toLowerCase()}">${p.side}</span></div>
+        <div class="pos-card-pnl ${p.upnl>=0?'pos':'neg'}">${fmtPnl(p.upnl)}</div>
+        <div class="pos-card-row"><span>Entrada</span><span>${fmtUsd(p.entryPx)}</span></div>
+        <div class="pos-card-row"><span>Valor</span><span>${fmtUsd(p.posVal)}</span></div>
+        <div class="pos-card-row"><span>ROE</span><span class="${p.roe>=0?'pos':'neg'}">${(p.roe>=0?'+':'')+p.roe.toFixed(2)}%</span></div>
+        <div class="pos-card-row"><span>Leverage</span><span>${p.leverage}x ${p.levType}</span></div>
+        <div class="pos-card-row"><span>Liq.</span><span class="neg">${p.liqPx>0?fmtUsd(p.liqPx):'—'}</span></div>
+        <div class="pos-card-row" style="border-top:1px solid var(--border);padding-top:4px;margin-top:2px"><span>${p.label}</span><span>${p.updated.toLocaleTimeString()}</span></div>
+      </div>`).join('');
+  }
+}
+function renderHeatmap() {
+  const bar=document.getElementById('heatmap-bar');
+  if (!_allPositions.length) { bar.style.display='none'; return; }
+  const byC={};
+  _allPositions.forEach(p=>{
+    if (!byC[p.coin]) byC[p.coin]={l:0,s:0,pnl:0};
+    if (p.side==='LONG') { byC[p.coin].l+=p.posVal; byC[p.coin].pnl+=p.upnl; }
+    else { byC[p.coin].s+=p.posVal; byC[p.coin].pnl+=p.upnl; }
+  });
+  const coins=Object.entries(byC).sort((a,b)=>(b[1].l+b[1].s)-(a[1].l+a[1].s));
+  const maxP=Math.max(...coins.map(([,d])=>Math.abs(d.pnl)),1);
+  bar.style.display='';
+  document.getElementById('heatmap-grid').innerHTML=coins.map(([coin,d])=>{
+    const inten=Math.min(Math.abs(d.pnl)/maxP,1);
+    const bg=d.pnl>=0?`rgba(35,134,54,${.2+inten*.6})`:`rgba(218,54,51,${.2+inten*.6})`;
+    return `<div class="heatmap-cell" style="background:${bg}" title="${coin}: PnL ${fmtPnl(d.pnl)}">
+      <span class="hm-coin">${coin}</span><span class="hm-val">${fmtPnl(d.pnl)}</span></div>`;
+  }).join('');
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  WALLETS
-// ═══════════════════════════════════════════════════════════════
+// SENTIMIENTO
+function calcSentiment(positions) {
+  let lv=0,sv=0;
+  positions.forEach(p=>{ if(p.side==='LONG')lv+=p.posVal; else sv+=p.posVal; });
+  const tot=lv+sv||1;
+  return {longVal:lv,shortVal:sv,longPct:lv/tot*100,shortPct:sv/tot*100,exposure:lv-sv};
+}
+function recordSentiment() {
+  if (!_allPositions.length) return;
+  const s=calcSentiment(_allPositions);
+  _sentHistory.push({time:new Date(),...s});
+  if (_sentHistory.length>60) _sentHistory.shift();
+}
+function updateSentimiento() {
+  const positions=_allPositions;
+  const coinEl=document.getElementById('coin-bar-list');
+  const summEl=document.getElementById('sent-summary');
+  if (!positions.length) {
+    updateGauge(50);
+    coinEl.innerHTML=`<div style="font-size:11px;color:var(--muted2);font-style:italic">Actualizá posiciones primero</div>`;
+    summEl.innerHTML=`<div style="font-size:11px;color:var(--muted2);font-style:italic;text-align:center">Sin datos</div>`;
+    renderSentHistory(); return;
+  }
+  const s=calcSentiment(positions);
+  updateGauge(s.longPct);
+  summEl.innerHTML=`
+    <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg2);border-radius:5px">
+      <span style="color:var(--green)">LONG</span><span class="pos">${fmtUsd(s.longVal)}</span><span class="pos">${s.longPct.toFixed(1)}%</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg2);border-radius:5px">
+      <span style="color:var(--red)">SHORT</span><span class="neg">${fmtUsd(s.shortVal)}</span><span class="neg">${s.shortPct.toFixed(1)}%</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;padding:5px 8px;background:var(--bg2);border-radius:5px">
+      <span style="color:var(--muted)">Exposición neta</span><span class="${s.exposure>=0?'pos':'neg'}">${fmtPnl(s.exposure)}</span></div>`;
+  const byC={};
+  positions.forEach(p=>{ if(!byC[p.coin])byC[p.coin]={l:0,s:0}; if(p.side==='LONG')byC[p.coin].l+=p.posVal; else byC[p.coin].s+=p.posVal; });
+  const sorted=Object.entries(byC).sort((a,b)=>(b[1].l+b[1].s)-(a[1].l+a[1].s));
+  const maxT=Math.max(...sorted.map(([,d])=>d.l+d.s),1);
+  coinEl.innerHTML=sorted.map(([coin,d])=>{
+    const tot=d.l+d.s, lPct=d.l/tot*100, bW=tot/maxT*100;
+    return `<div class="coin-bar-row">
+      <span class="coin-bar-name">${coin}</span>
+      <div class="coin-bar-track" style="max-width:${bW}%">
+        <div class="coin-bar-l" style="width:${lPct}%"></div>
+        <div class="coin-bar-s" style="width:${100-lPct}%"></div>
+      </div>
+      <span class="coin-bar-val">${fmtUsd(tot)}</span></div>`;
+  }).join('');
+  renderSentHistory();
+}
+function updateGauge(longPct) {
+  const t=251, ld=(longPct/100)*t;
+  document.getElementById('gauge-long-arc').setAttribute('stroke-dashoffset',(t-ld).toFixed(1));
+  document.getElementById('gauge-pct-text').textContent=longPct.toFixed(0)+'%';
+}
+function renderSentHistory() {
+  const el=document.getElementById('sent-history-chart');
+  if (_sentHistory.length<2) { el.innerHTML=`<p class="hist-empty">Se necesitan 2+ muestras.</p>`; return; }
+  const W=Math.max(500,_sentHistory.length*18),H=70,pL=36,pR=10,pT=5,pB=20;
+  const iW=W-pL-pR,iH=H-pT-pB;
+  const xs=_sentHistory.map((_,i)=>pL+i/(Math.max(_sentHistory.length-1,1))*iW);
+  const ys=_sentHistory.map(s=>pT+(1-s.longPct/100)*iH);
+  const pts=xs.map((x,i)=>x.toFixed(1)+','+ys[i].toFixed(1)).join(' ');
+  const aD=`M${xs[0].toFixed(1)},${(H-pB).toFixed(1)} `+xs.map((x,i)=>`L${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ')+` L${xs[xs.length-1].toFixed(1)},${(H-pB).toFixed(1)} Z`;
+  const step=Math.max(Math.floor(_sentHistory.length/6),1);
+  const labs=_sentHistory.filter((_,i)=>i%step===0).map(s=>{ const i=_sentHistory.indexOf(s); return `<text x="${xs[i].toFixed(1)}" y="${H-3}" text-anchor="middle" fill="var(--muted)" font-size="9">${s.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</text>`; }).join('');
+  el.innerHTML=`<div style="overflow-x:auto"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--green)" stop-opacity=".3"/><stop offset="100%" stop-color="var(--green)" stop-opacity="0"/></linearGradient></defs>
+    <line x1="${pL}" y1="${pT+iH/2}" x2="${W-pR}" y2="${pT+iH/2}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="${pL-3}" y="${pT+iH/2+3}" text-anchor="end" fill="var(--muted)" font-size="9">50%</text>
+    <path d="${aD}" fill="url(#sg)"/>
+    <polyline points="${pts}" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linejoin="round"/>
+    ${labs}</svg></div>`;
+}
+
+// KPIs
+function updateKpis() {
+  const pos=_allPositions, active=new Set(pos.map(p=>p.wallet));
+  document.getElementById('kpi-whales').textContent=active.size||'—';
+  document.getElementById('kpi-positions').textContent=pos.length||'—';
+  if (pos.length) {
+    const s=calcSentiment(pos);
+    const se=document.getElementById('kpi-sentiment');
+    se.textContent=s.longPct.toFixed(1)+'%'; se.className='kpi-value '+(s.longPct>=50?'pos':'neg');
+    document.getElementById('kpi-exposure').textContent=fmtUsd(s.exposure);
+    const byC={}; pos.forEach(p=>{ byC[p.coin]=(byC[p.coin]||0)+p.posVal; });
+    const top=Object.entries(byC).sort((a,b)=>b[1]-a[1])[0];
+    if (top) { document.getElementById('kpi-topcoin').textContent=top[0]; document.getElementById('kpi-topcoin-sub').textContent=fmtUsd(top[1]); }
+  }
+  document.getElementById('kpi-time').textContent=new Date().toLocaleTimeString();
+}
+
+// WALLETS
 function addWallet() {
-  let addr = document.getElementById('new-addr').value.trim();
-  const label = document.getElementById('new-label').value.trim();
-  const threshold = parseFloat(document.getElementById('new-threshold').value) || 5;
-
+  let addr=document.getElementById('new-addr').value.trim();
+  const label=document.getElementById('new-label').value.trim();
+  const thr=parseFloat(document.getElementById('new-threshold').value)||5;
   if (!addr) return;
-  if (!addr.startsWith('0x')) addr = '0x' + addr;
-  if (_wallets.some(w => w.address.toLowerCase() === addr.toLowerCase())) {
-    alert('Wallet ya está en la lista.'); return;
-  }
-
-  _wallets.push({ address: addr.toLowerCase(), label, threshold, active: true, lastCheck: null });
-  saveWallets();
-  renderWallets();
-  document.getElementById('new-addr').value = '';
-  document.getElementById('new-label').value = '';
+  if (!addr.startsWith('0x')) addr='0x'+addr;
+  if (_wallets.some(w=>w.address.toLowerCase()===addr.toLowerCase())) { alert('Ya existe.'); return; }
+  _wallets.push({address:addr.toLowerCase(),label,threshold:thr,active:true,lastCheck:null});
+  saveWallets(); renderWallets();
+  document.getElementById('new-addr').value='';
+  document.getElementById('new-label').value='';
 }
-
-function trackAddr(addr, label) {
-  if (_wallets.some(w => w.address.toLowerCase() === addr.toLowerCase())) {
-    alert('Wallet ya monitoreada.'); return;
-  }
-  _wallets.push({ address: addr.toLowerCase(), label, threshold: 5, active: true, lastCheck: null });
-  saveWallets();
-  renderWallets();
-  renderLeaderboard();
-  switchTab('wallets');
+function trackAddr(addr,label) {
+  if (_wallets.some(w=>w.address.toLowerCase()===addr.toLowerCase())) { alert('Ya monitoreada.'); return; }
+  _wallets.push({address:addr.toLowerCase(),label,threshold:5,active:true,lastCheck:null});
+  saveWallets(); renderWallets(); renderLeaderboard(); switchTab('wallets');
 }
-
-function trackSelected() { /* handled by selectLbRow */ }
-
-function removeWallet(addr) {
-  _wallets = _wallets.filter(w => w.address !== addr);
-  saveWallets();
-  renderWallets();
-  renderLeaderboard();
-}
-
-function toggleWallet(addr) {
-  const w = _wallets.find(x => x.address === addr);
-  if (w) w.active = !w.active;
-  saveWallets();
-  renderWallets();
-}
-
-function saveWallets() { localStorage.setItem('hl_wallets', JSON.stringify(_wallets)); }
-
+function removeWallet(addr) { _wallets=_wallets.filter(w=>w.address!==addr); saveWallets(); renderWallets(); renderLeaderboard(); }
+function toggleWallet(addr) { const w=_wallets.find(x=>x.address===addr); if(w)w.active=!w.active; saveWallets(); renderWallets(); }
+function saveWallets() { localStorage.setItem('hl_wallets',JSON.stringify(_wallets)); }
 function renderWallets() {
-  const el = document.getElementById('wallet-list');
-  if (!_wallets.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">👁</div><div class="empty-text">No hay wallets monitoreadas. Agregá una arriba.</div></div>`;
-    return;
-  }
-  el.innerHTML = _wallets.map(w => `
+  const el=document.getElementById('wallet-list');
+  if (!_wallets.length) { el.innerHTML=`<div class="empty"><div class="empty-icon">👁</div><div class="empty-text">Sin wallets</div></div>`; return; }
+  el.innerHTML=_wallets.map(w=>`
     <div class="wallet-item" style="${!w.active?'opacity:.5':''}">
-      <input type="checkbox" ${w.active?'checked':''} onchange="toggleWallet('${w.address}')" style="cursor:pointer">
+      <input type="checkbox" ${w.active?'checked':''} onchange="toggleWallet('${w.address}')" style="cursor:pointer;flex-shrink:0">
       <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-weight:600">${w.label || shortAddr(w.address)}</span>
-          <span style="font-size:10px;padding:1px 6px;background:var(--bg3);border-radius:3px;color:var(--muted)">PnL alert: ${w.threshold}%</span>
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <span style="font-weight:600">${w.label||shortAddr(w.address)}</span>
+          <span style="font-size:9px;padding:1px 6px;background:var(--bg3);border-radius:3px;color:var(--muted)">alerta:${w.threshold}%</span>
+          ${w.lastCheck?`<span style="font-size:9px;color:var(--muted2)">✓ ${w.lastCheck.toLocaleTimeString()}</span>`:''}
         </div>
         <div class="wallet-addr">${w.address}</div>
       </div>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-ghost" style="padding:3px 8px;font-size:10px" onclick="lookupWallet('${w.address}')">🔍 Ver</button>
-        <button class="btn btn-danger" style="padding:3px 8px;font-size:10px" onclick="removeWallet('${w.address}')">✕</button>
+      <div style="display:flex;gap:5px;flex-shrink:0">
+        <button class="btn btn-ghost" style="padding:3px 7px;font-size:10px" onclick="lookupWallet('${w.address}')">🔍</button>
+        <button class="btn btn-danger" style="padding:3px 7px;font-size:10px" onclick="removeWallet('${w.address}')">✕</button>
       </div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
-
 async function lookupWallet(addr) {
   switchTab('positions');
-  const bar = document.getElementById('pos-loading');
-  const status = document.getElementById('pos-status');
-  bar.classList.add('active');
-  status.textContent = `⏳ Cargando ${shortAddr(addr)}…`;
-  const w = _wallets.find(x => x.address === addr) || { address: addr, label: shortAddr(addr) };
+  const bar=document.getElementById('pos-loading'), st=document.getElementById('pos-status');
+  bar.classList.add('active'); st.textContent=`Cargando...`;
+  const w=_wallets.find(x=>x.address===addr)||{address:addr,label:shortAddr(addr)};
   try {
-    const { positions } = await fetchPositions(w);
-    _positions[addr] = positions;
-    const all = Object.values(_positions).flat();
-    renderPositions(all);
-    status.textContent = `✅ ${positions.length} posiciones · ${new Date().toLocaleTimeString()}`;
-  } catch(e) {
-    status.textContent = `❌ ${e.message}`;
-  } finally {
-    bar.classList.remove('active');
-  }
+    const {positions}=await fetchPositions(w);
+    _positions[addr]=positions; _allPositions=Object.values(_positions).flat();
+    renderPositions(); renderHeatmap(); updateKpis();
+    st.textContent=`${positions.length} posiciones · ${new Date().toLocaleTimeString()}`;
+  } catch(e) { st.textContent=`Error: ${e.message}`; }
+  finally { bar.classList.remove('active'); }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  MONITOR (POLLING 60s)
-// ═══════════════════════════════════════════════════════════════
+// MONITOR
 function startMonitor() {
   if (_monitorTimer) return;
-  document.getElementById('btn-start-monitor').style.display = 'none';
-  document.getElementById('btn-stop-monitor').style.display  = '';
-  setLive(true);
-  pollOnce();
-  _monitorTimer = setInterval(pollOnce, 60000);
+  document.getElementById('btn-start-monitor').style.display='none';
+  document.getElementById('btn-stop-monitor').style.display='';
+  setLive(true); pollOnce();
+  _monitorTimer=setInterval(pollOnce,60000);
 }
-
 function stopMonitor() {
-  clearInterval(_monitorTimer);
-  _monitorTimer = null;
-  document.getElementById('btn-start-monitor').style.display = '';
-  document.getElementById('btn-stop-monitor').style.display  = 'none';
-  setLive(false);
-  document.getElementById('monitor-status').textContent = '⏹ Monitor detenido';
+  clearInterval(_monitorTimer); _monitorTimer=null;
+  document.getElementById('btn-start-monitor').style.display='';
+  document.getElementById('btn-stop-monitor').style.display='none';
+  setLive(false); document.getElementById('monitor-status').textContent='Monitor detenido';
 }
-
 async function pollOnce() {
-  const active = _wallets.filter(w => w.active);
+  const active=_wallets.filter(w=>w.active);
   if (!active.length) return;
-  document.getElementById('monitor-status').textContent = `🔄 Chequeando ${active.length} wallet(s)…`;
-
-  const allPos = [];
+  document.getElementById('monitor-status').textContent=`Chequeando ${active.length}...`;
+  const allPos=[];
   for (const w of active) {
     try {
-      const { positions } = await fetchPositions(w);
-      detectAlerts(w, positions);
-      _prevPos[w.address] = _positions[w.address] || [];
-      _positions[w.address] = positions;
-      w.lastCheck = new Date();
-      allPos.push(...positions);
-    } catch(e) { /* silencioso */ }
+      const {positions}=await fetchPositions(w);
+      detectAlerts(w,positions);
+      _prevPos[w.address]=_positions[w.address]||[];
+      _positions[w.address]=positions; w.lastCheck=new Date(); allPos.push(...positions);
+    } catch(e){}
   }
-
-  renderPositions(allPos);
-  renderWallets();
-  const t = new Date().toLocaleTimeString();
-  document.getElementById('monitor-status').textContent = `✅ ${t} — ${allPos.length} posiciones`;
-  document.getElementById('pos-status').textContent = `✅ ${allPos.length} posiciones · ${t}`;
+  _allPositions=allPos; renderPositions(); renderHeatmap(); updateKpis(); recordSentiment(); renderWallets();
+  const t=new Date().toLocaleTimeString();
+  document.getElementById('monitor-status').textContent=`${t} · ${allPos.length} pos`;
+  document.getElementById('pos-status').textContent=`${allPos.length} posiciones · ${t}`;
+  document.getElementById('kpi-cycle').textContent='monitor 60s';
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  ALERTAS
-// ═══════════════════════════════════════════════════════════════
-function detectAlerts(wallet, current) {
-  const prev = _prevPos[wallet.address] || [];
-  const prevMap = Object.fromEntries(prev.map(p => [p.coin + p.side, p]));
-  const currMap = Object.fromEntries(current.map(p => [p.coin + p.side, p]));
-
-  // Nueva posición
-  current.forEach(p => {
-    if (!prevMap[p.coin + p.side]) {
-      addAlert({
-        type: 'new-pos', typeLabel: '🆕 NUEVA',
-        wallet: wallet.label || shortAddr(wallet.address),
-        coin: p.coin,
-        msg: `${wallet.label || shortAddr(wallet.address)} abrió ${p.side} ${p.coin} | ${p.size.toFixed(4)} @ ${fmtUsd(p.entryPx)} | Valor: ${fmtUsd(p.posVal)} | ${p.leverage}x ${p.levType}`
-      });
-    }
+// ALERTAS
+function detectAlerts(wallet,current) {
+  const prev=_prevPos[wallet.address]||[];
+  const prevMap=Object.fromEntries(prev.map(p=>[p.coin+p.side,p]));
+  const wLabel=wallet.label||shortAddr(wallet.address);
+  current.forEach(p=>{
+    if (!prevMap[p.coin+p.side]) addAlert({type:'new-pos',typeLabel:'🆕 NUEVA',wallet:wLabel,coin:p.coin,
+      msg:`${wLabel} abrió ${p.side} ${p.coin} | ${p.size.toFixed(4)} @ ${fmtUsd(p.entryPx)} | ${fmtUsd(p.posVal)} | ${p.leverage}x`});
   });
-
-  // Posición cerrada
-  prev.forEach(p => {
-    if (!currMap[p.coin + p.side]) {
-      addAlert({
-        type: 'close-pos', typeLabel: '🔴 CIERRE',
-        wallet: wallet.label || shortAddr(wallet.address),
-        coin: p.coin,
-        msg: `${wallet.label || shortAddr(wallet.address)} CERRÓ ${p.side} ${p.coin} | PnL: ${fmtPnl(p.upnl)}`
-      });
-    }
+  prev.forEach(p=>{
+    const curr=current.find(c=>c.coin===p.coin&&c.side===p.side);
+    if (!curr) addAlert({type:'close-pos',typeLabel:'🔴 CIERRE',wallet:wLabel,coin:p.coin,
+      msg:`${wLabel} CERRÓ ${p.side} ${p.coin} | PnL: ${fmtPnl(p.upnl)}`});
   });
-
-  // Cambio PnL
-  current.forEach(p => {
-    const pp = prevMap[p.coin + p.side];
-    if (!pp || Math.abs(pp.upnl) < 1) return;
-    const changePct = Math.abs((p.upnl - pp.upnl) / Math.abs(pp.upnl) * 100);
-    if (changePct >= wallet.threshold) {
-      addAlert({
-        type: 'pnl-chg', typeLabel: '📈 PNL',
-        wallet: wallet.label || shortAddr(wallet.address),
-        coin: p.coin,
-        msg: `${wallet.label || shortAddr(wallet.address)} PnL ±${changePct.toFixed(1)}% en ${p.coin} | PnL: ${fmtPnl(p.upnl)} | ROE: ${p.roe.toFixed(2)}%`
-      });
-    }
+  current.forEach(p=>{
+    const pp=prevMap[p.coin+p.side];
+    if (!pp||Math.abs(pp.upnl)<1) return;
+    const chg=Math.abs((p.upnl-pp.upnl)/Math.abs(pp.upnl)*100);
+    if (chg>=wallet.threshold) addAlert({type:'pnl-chg',typeLabel:'📈 PNL',wallet:wLabel,coin:p.coin,
+      msg:`${wLabel} PnL ±${chg.toFixed(1)}% en ${p.coin} | ${fmtPnl(p.upnl)} | ROE ${p.roe.toFixed(2)}%`});
   });
-
-  // Posición grande (>$100k)
-  current.forEach(p => {
-    if (!prevMap[p.coin + p.side] && p.posVal >= 100000) {
-      addAlert({
-        type: 'whale', typeLabel: '🐋 BALLENA',
-        wallet: wallet.label || shortAddr(wallet.address),
-        coin: p.coin,
-        msg: `POSICIÓN GRANDE: ${wallet.label || shortAddr(wallet.address)} abrió ${p.side} ${p.coin} | ${fmtUsd(p.posVal)} | ${p.leverage}x`
-      });
-    }
+  current.forEach(p=>{
+    if (!prevMap[p.coin+p.side]&&p.posVal>=100000) addAlert({type:'whale',typeLabel:'🐋 BALLENA',wallet:wLabel,coin:p.coin,
+      msg:`GRANDE: ${wLabel} ${p.side} ${p.coin} | ${fmtUsd(p.posVal)} | ${p.leverage}x`});
   });
 }
-
 function addAlert(a) {
-  const item = { ...a, time: new Date() };
-  _alerts.unshift(item);
-  if (_alerts.length > 300) _alerts.pop();
-  _alertCount++;
-  renderAlerts();
-  updateAlertBadge();
+  _alerts.unshift({...a,time:new Date()});
+  if (_alerts.length>500) _alerts.pop();
+  _alertCount++; _alertKpis[a.type]=(_alertKpis[a.type]||0)+1;
+  updateAlertKpis(); renderAlerts(); updateAlertBadge();
+  if (_soundOn) playBeep();
 }
-
+function setAlertFilter(el) {
+  document.querySelectorAll('.chip[data-af]').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); _alertFilter=el.dataset.af; renderAlerts();
+}
 function renderAlerts() {
-  const el = document.getElementById('alerts-list');
-  if (!_alerts.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">Sin alertas</div></div>`;
-    document.getElementById('alerts-count').textContent = 'Sin alertas';
-    return;
-  }
-  document.getElementById('alerts-count').textContent = `${_alerts.length} alertas`;
-  el.innerHTML = _alerts.map(a => `
+  const filtered=_alertFilter==='all'?_alerts:_alerts.filter(a=>a.type===_alertFilter);
+  const el=document.getElementById('alerts-list');
+  document.getElementById('alerts-count').textContent=`${filtered.length} alertas`;
+  if (!filtered.length) { el.innerHTML=`<div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">Sin alertas</div></div>`; return; }
+  el.innerHTML=filtered.map(a=>`
     <div class="alert-item">
       <div class="alert-time">${a.time.toLocaleTimeString()}</div>
       <div class="alert-type ${a.type}">${a.typeLabel}</div>
-      <div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:2px">${a.wallet} · <strong>${a.coin}</strong></div>
-        <div class="alert-msg">${a.msg}</div>
-      </div>
-    </div>
-  `).join('');
+      <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">${a.wallet} · <strong style="color:var(--accent)">${a.coin}</strong></div>
+      <div class="alert-msg">${a.msg}</div></div>
+    </div>`).join('');
 }
-
+function updateAlertKpis() {
+  document.getElementById('ak-new').textContent   =_alertKpis['new-pos']||0;
+  document.getElementById('ak-close').textContent =_alertKpis['close-pos']||0;
+  document.getElementById('ak-pnl').textContent   =_alertKpis['pnl-chg']||0;
+  document.getElementById('ak-whale').textContent =_alertKpis.whale||0;
+}
 function clearAlerts() {
-  _alerts = [];
-  _alertCount = 0;
-  renderAlerts();
-  updateAlertBadge();
+  _alerts=[]; _alertCount=0; _alertKpis={'new-pos':0,'close-pos':0,'pnl-chg':0,whale:0};
+  updateAlertKpis(); renderAlerts(); updateAlertBadge();
+}
+function updateAlertBadge() {
+  const b=document.getElementById('alert-badge');
+  if (_alertCount>0) { b.style.display='inline-flex'; b.textContent=_alertCount>99?'99+':_alertCount; }
+  else b.style.display='none';
+}
+function toggleSound() {
+  _soundOn=!_soundOn;
+  document.getElementById('btn-sound').textContent='🔔 Sonido: '+(_soundOn?'ON':'OFF');
+}
+function playBeep() {
+  try { const ctx=new AudioContext(),osc=ctx.createOscillator(),g=ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination); osc.frequency.value=880;
+    g.gain.setValueAtTime(.3,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.3);
+    osc.start(); osc.stop(ctx.currentTime+.3); } catch(e){}
+}
+function exportCsv() {
+  const rows=_alerts.map(a=>[a.time.toISOString(),a.type,a.wallet,a.coin,'"'+a.msg.replace(/"/g,'""')+'"'].join(','));
+  const csv='Tiempo,Tipo,Wallet,Coin,Mensaje\n'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='alertas_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
 }
 
-function updateAlertBadge() {
-  const badge = document.getElementById('alert-badge');
-  if (_alertCount > 0) {
-    badge.style.display = 'inline-flex';
-    badge.textContent = _alertCount > 99 ? '99+' : _alertCount;
-  } else {
-    badge.style.display = 'none';
+// QUICK LOOKUP
+async function quickLookup() {
+  let addr=(document.getElementById('ql-input').value||'').trim();
+  if (!addr) return;
+  if (!addr.startsWith('0x')) addr='0x'+addr;
+  const modal=document.getElementById('lookup-modal'), ov=document.getElementById('overlay');
+  modal.classList.add('open'); ov.classList.add('open');
+  document.getElementById('lookup-name').textContent='Cargando...';
+  document.getElementById('lookup-addr-disp').textContent=addr;
+  document.getElementById('lookup-body').innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Consultando...</div></div>`;
+  try {
+    const data=await hlPost({type:'clearinghouseState',user:addr.toLowerCase()});
+    const summary=data.crossMarginSummary||data.marginSummary||{};
+    const av=parseFloat(summary.accountValue||'0');
+    const positions=(data.assetPositions||[]).filter(w=>w.position&&Math.abs(parseFloat(w.position.szi||'0'))>0).map(w=>{
+      const p=w.position,sz=parseFloat(p.szi||'0');
+      return {coin:p.coin,side:sz>=0?'LONG':'SHORT',posVal:parseFloat(p.positionValue||'0'),
+        upnl:parseFloat(p.unrealizedPnl||'0'),leverage:p.leverage?.value||0};
+    });
+    document.getElementById('lookup-name').textContent=shortAddr(addr);
+    const rows=positions.sort((a,b)=>b.posVal-a.posVal).map(p=>`<tr>
+      <td style="padding:5px;font-weight:700;color:var(--accent)">${p.coin}</td>
+      <td style="padding:5px;font-weight:700" class="tag-${p.side.toLowerCase()}">${p.side}</td>
+      <td style="padding:5px;text-align:right;font-family:var(--mono)">${fmtUsd(p.posVal)}</td>
+      <td style="padding:5px;text-align:right;font-family:var(--mono)" class="${p.upnl>=0?'pos':'neg'}">${fmtPnl(p.upnl)}</td>
+      <td style="padding:5px;text-align:right;font-family:var(--mono);color:var(--muted)">${p.leverage}x</td>
+    </tr>`).join('');
+    document.getElementById('lookup-body').innerHTML=`
+      <div class="metric-grid">
+        <div class="metric-box"><div class="metric-label">Cuenta</div><div class="metric-val">${fmtUsd(av)}</div></div>
+        <div class="metric-box"><div class="metric-label">Posiciones</div><div class="metric-val">${positions.length}</div></div>
+      </div>
+      ${positions.length?`<table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr>
+        <th style="text-align:left;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">Asset</th>
+        <th style="text-align:left;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">Lado</th>
+        <th style="text-align:right;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">Valor</th>
+        <th style="text-align:right;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">PnL</th>
+        <th style="text-align:right;padding:5px;color:var(--muted);border-bottom:1px solid var(--border)">Lev</th>
+      </tr></thead><tbody>${rows}</tbody></table>`
+      :`<div class="empty" style="height:80px"><div class="empty-icon">📍</div><div class="empty-text">Sin posiciones</div></div>`}
+      <div style="display:flex;gap:7px;margin-top:6px">
+        <button class="btn btn-success" onclick="trackAddr('${addr}','')">+ Monitorear</button>
+        <button class="btn btn-ghost" onclick="copyAddr('${addr}')">Copiar</button>
+      </div>`;
+  } catch(e) {
+    document.getElementById('lookup-body').innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">${e.message}</div></div>`;
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  HELPERS
-// ═══════════════════════════════════════════════════════════════
-function shortAddr(a) {
-  if (!a || a.length < 12) return a;
-  return a.slice(0,6) + '…' + a.slice(-4);
+function closeLookup() {
+  document.getElementById('lookup-modal').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
 }
 
+// HELPERS
+function shortAddr(a) { if(!a||a.length<12)return a; return a.slice(0,6)+'…'+a.slice(-4); }
 function fmtUsd(v) {
-  if (!v) return '$0';
-  if (Math.abs(v) >= 1e6) return '$' + (v/1e6).toFixed(2) + 'M';
-  if (Math.abs(v) >= 1e3) return '$' + v.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
-  return '$' + v.toFixed(2);
+  if(!v)return '$0'; const abs=Math.abs(v);
+  if(abs>=1e9)return '$'+(v/1e9).toFixed(2)+'B';
+  if(abs>=1e6)return '$'+(v/1e6).toFixed(2)+'M';
+  if(abs>=1e3)return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0});
+  return '$'+v.toFixed(2);
 }
-
 function fmtPnl(v) {
-  if (!v) return '$0';
-  const abs = Math.abs(v);
-  const str = abs >= 1e6 ? (abs/1e6).toFixed(2)+'M' : abs.toLocaleString('en-US', {minimumFractionDigits:0,maximumFractionDigits:0});
-  return (v >= 0 ? '+' : '-') + '$' + str;
+  if(!v)return '$0'; const abs=Math.abs(v);
+  const s=abs>=1e9?(abs/1e9).toFixed(2)+'B':abs>=1e6?(abs/1e6).toFixed(2)+'M':abs.toLocaleString('en-US',{maximumFractionDigits:0});
+  return (v>=0?'+':'-')+'$'+s;
 }
-
 function fmtVol(v) {
-  if (!v) return '$0';
-  if (v >= 1e9) return '$' + (v/1e9).toFixed(1) + 'B';
-  if (v >= 1e6) return '$' + (v/1e6).toFixed(1) + 'M';
-  if (v >= 1e3) return '$' + (v/1e3).toFixed(0) + 'K';
-  return '$' + v.toFixed(0);
+  if(!v)return '$0';
+  if(v>=1e9)return '$'+(v/1e9).toFixed(1)+'B';
+  if(v>=1e6)return '$'+(v/1e6).toFixed(1)+'M';
+  if(v>=1e3)return '$'+(v/1e3).toFixed(0)+'K';
+  return '$'+v.toFixed(0);
 }
-
 function setLive(on) {
-  const dot  = document.getElementById('status-dot');
-  const text = document.getElementById('status-text');
-  dot.classList.toggle('live', on);
-  text.textContent = on ? 'Live (60s)' : 'Offline';
+  document.getElementById('sdot').classList.toggle('live',on);
+  document.getElementById('stext').textContent=on?'Live (60s)':'Offline';
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════════════════════════
+// INIT
 renderWallets();
 renderAlerts();
+updateAlertKpis();
+setPosView('table');
+updateGauge(50);
 </script>
 </body>
 </html>
