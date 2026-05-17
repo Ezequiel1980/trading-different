@@ -384,13 +384,22 @@ tbody td { padding:7px 10px; white-space:nowrap; font-family:var(--mono); font-s
 // ═══════════════════════════════════════════════════════════════
 //  API
 // ═══════════════════════════════════════════════════════════════
-const HL_API = 'https://api.hyperliquid.xyz/info';
+const HL_API       = 'https://api.hyperliquid.xyz/info';
+const HL_STATS_API = 'https://stats-data.hyperliquid.xyz/Mainnet';
 
 async function hlPost(body) {
   const res = await fetch(HL_API, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function hlGet(path) {
+  const res = await fetch(HL_STATS_API + path, {
+    headers: { 'Accept': 'application/json' }
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -434,14 +443,17 @@ async function loadLeaderboard() {
   document.getElementById('btn-track').disabled = true;
 
   try {
-    const data = await hlPost({ type: 'leaderboard' });
-    let rows = (data.leaderboardRows || []).slice(0, topN);
+    // Hyperliquid leaderboard está en stats-data, NO en api.hyperliquid.xyz/info
+    const data = await hlGet('/leaderboard');
+    // Estructura: { leaderboardRows: [...] }
+    const rows = (data.leaderboardRows || data || []).slice(0, topN);
     _lbData = rows.map((r, i) => parseLeaderboardRow(r, i + 1));
     renderLeaderboard();
     renderLbSummary();
     status.textContent = `✅ ${_lbData.length} traders · ${new Date().toLocaleTimeString()}`;
   } catch(e) {
-    status.textContent = `❌ Error: ${e.message}`;
+    // Fallback: intentar con userFills de wallets conocidas o mostrar error claro
+    status.textContent = `❌ ${e.message} — La API de leaderboard puede requerir VPN en algunas regiones`;
   } finally {
     bar.classList.remove('active');
   }
